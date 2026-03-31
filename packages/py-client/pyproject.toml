@@ -1,0 +1,51 @@
+[project]
+name = "ollama-models"
+version = "0.1.0"
+description = "Python client for the ollama-models API — search and list Ollama model weights"
+authors = [
+    { name = "devcomfort", email = "im@devcomfort.me" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">= 3.8"
+keywords = ["ollama", "llm", "models", "search", "registry"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "httpx>=0.27.0",
+]
+
+[project.urls]
+Repository = "https://github.com/devcomfort/ollama-models"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-httpx>=0.21.0",
+    "build>=1.0.0",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ollama_models"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
