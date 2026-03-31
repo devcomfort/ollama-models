@@ -1,0 +1,37 @@
+{
+    "name": "@ollama-models/client",
+    "version": "0.1.0",
+    "description": "TypeScript/JavaScript client for searching and listing Ollama model weights",
+    "keywords": ["ollama", "llm", "models", "search", "registry"],
+    "license": "MIT",
+    "author": "devcomfort <im@devcomfort.me>",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/devcomfort/ollama-models"
+    },
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "type-check": "tsc --noEmit",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "devDependencies": {
+        "tsup": "^8.0.0",
+        "typescript": "^5.0.0",
+        "vitest": "^2.0.0"
+    }
+}
