@@ -1,19 +1,19 @@
-# @ollama-models/client
+# @devcomfort/ollama-models
 
 TypeScript/JavaScript client for searching and listing models from the [Ollama](https://ollama.com) registry.
 
 ## Installation
 
 ```bash
-npm install @ollama-models/client
+npm install @devcomfort/ollama-models
 # or
-pnpm add @ollama-models/client
+pnpm add @devcomfort/ollama-models
 ```
 
 ## Usage
 
 ```typescript
-import { OllamaModelsClient } from '@ollama-models/client';
+import { OllamaModelsClient } from '@devcomfort/ollama-models';
 
 // No base URL needed — defaults to the official hosted instance
 const client = new OllamaModelsClient();

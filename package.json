@@ -5,16 +5,16 @@
     "scripts": {
         "dev": "pnpm --filter ollama-models-api dev",
         "deploy": "pnpm --filter ollama-models-api deploy",
-        "build": "pnpm --filter @ollama-models/client build",
+        "build": "pnpm --filter @devcomfort/ollama-models build",
         "type-check": "pnpm -r type-check",
         "test": "pnpm -r run test && pnpm py:test",
         "test:api": "pnpm --filter ollama-models-api test",
-        "test:ts": "pnpm --filter @ollama-models/client test",
+        "test:ts": "pnpm --filter @devcomfort/ollama-models test",
         "test:py": "cd packages/py-client && rye run pytest",
         "py:sync": "cd packages/py-client && rye sync",
         "py:build": "cd packages/py-client && rye run python -m build",
         "py:publish": "cd packages/py-client && rye run twine upload dist/*",
-        "ts:publish": "pnpm --filter @ollama-models/client publish --access public"
+        "ts:publish": "pnpm --filter @devcomfort/ollama-models publish --access public"
     },
     "pnpm": {
         "onlyBuiltDependencies": [

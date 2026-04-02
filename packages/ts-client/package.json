@@ -1,8 +1,14 @@
 {
-    "name": "@ollama-models/client",
+    "name": "@devcomfort/ollama-models",
     "version": "0.1.0",
     "description": "TypeScript/JavaScript client for searching and listing Ollama model weights",
-    "keywords": ["ollama", "llm", "models", "search", "registry"],
+    "keywords": [
+        "ollama",
+        "llm",
+        "models",
+        "search",
+        "registry"
+    ],
     "license": "MIT",
     "author": "devcomfort <im@devcomfort.me>",
     "repository": {

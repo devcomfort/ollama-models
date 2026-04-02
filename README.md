@@ -13,7 +13,7 @@ Ollama does not provide a public API for registry search. This project scrapes S
 ```
 api/                      # Cloudflare Workers REST API (deployed)
 packages/
-  ts-client/              # @ollama-models/client — TypeScript/JS client
+  ts-client/              # @devcomfort/ollama-models — TypeScript/JS client
   py-client/              # ollama-models — Python client
 ```
 
@@ -79,15 +79,15 @@ Returns all available tags (weights) for a model.
 ### Installation
 
 ```bash
-npm install @ollama-models/client
+npm install @devcomfort/ollama-models
 # or
-pnpm add @ollama-models/client
+pnpm add @devcomfort/ollama-models
 ```
 
 ### Usage
 
 ```typescript
-import { OllamaModelsClient } from '@ollama-models/client';
+import { OllamaModelsClient } from '@devcomfort/ollama-models';
 
 // No base URL needed — defaults to the official hosted instance
 const client = new OllamaModelsClient();
@@ -217,4 +217,4 @@ interface ModelList {
 
 ## License
 
-MIT
+BSD-3-Clause
