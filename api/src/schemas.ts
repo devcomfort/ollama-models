@@ -1,136 +1,60 @@
-// ─── Zod schemas for OpenAPI spec generation ──────────────────────────────────
-// z must be imported from @hono/zod-openapi (NOT from 'zod').
-// @hono/zod-openapi calls extendZodWithOpenApi(z) internally,
-// which adds the .openapi() method to every Zod type.
-import { z } from '@hono/zod-openapi';
+import { z } from 'zod';
 
-// ─── ModelPage ────────────────────────────────────────────────────────────────
+// ─── Shared ───────────────────────────────────────────────────────────────────
 
-/**
- * A single Ollama model page entry returned inside a search result.
- * Mirrors {@link import('./search/types').ModelPage}.
- */
-export const ModelPageSchema = z
-  .object({
-    http_url: z
-      .string()
-      .openapi({ example: 'https://ollama.com/library/qwen3' }),
-    model_id: z
-      .string()
-      .openapi({ example: 'library/qwen3' }),
-  })
-  .openapi('ModelPage');
+export const ModelPageSchema = z.object({
+  http_url: z.string(),
+  model_id: z.string(),
+});
 
-// ─── PageRange ────────────────────────────────────────────────────────────────
+// ─── /search ─────────────────────────────────────────────────────────────────
 
-/**
- * The page or range of pages that was requested.
- *
- * The runtime API always returns a single integer (the requested page number).
- * Simplified to z.number() here for a clean OpenAPI schema; the TypeScript type
- * in search/types.ts retains the full `number | { from, to }` union.
- */
-export const PageRangeSchema = z
-  .number()
-  .int()
-  .min(1)
-  .openapi({ example: 1, description: 'Requested page number (1-based)' });
+export const SearchQuerySchema = z.object({
+  q: z.string().optional(),
+  page: z.string().optional(),
+});
 
-// ─── SearchResult ─────────────────────────────────────────────────────────────
+export const SearchResultSchema = z.object({
+  pages: z.array(ModelPageSchema),
+  page_range: z.union([
+    z.number(),
+    z.object({ from: z.number(), to: z.number() }),
+  ]),
+  keyword: z.string(),
+});
 
-/**
- * Response payload of GET /search.
- * Mirrors {@link import('./search/types').SearchResult}.
- */
-export const SearchResultSchema = z
-  .object({
-    pages: z
-      .array(ModelPageSchema)
-      .openapi({ description: 'Model pages found on the requested search page' }),
-    page_range: PageRangeSchema,
-    keyword: z
-      .string()
-      .openapi({ example: 'qwen3', description: 'Search keyword used for the request' }),
-  })
-  .openapi('SearchResult');
+// ─── /model ──────────────────────────────────────────────────────────────────
 
-// ─── ModelTags ────────────────────────────────────────────────────────────────
+export const ModelQuerySchema = z.object({
+  name: z.string(),
+});
 
-/**
- * Response payload of GET /model.
- * Mirrors {@link import('./model/types').ModelTags}.
- *
- * `default_tag` is nullable — null when the model has no `latest` tag.
- */
-export const ModelTagsSchema = z
-  .object({
-    page_url: z
-      .string()
-      .openapi({ example: 'https://ollama.com/library/qwen3' }),
-    id: z
-      .string()
-      .openapi({ example: 'library/qwen3' }),
-    tags: z
-      .array(z.string())
-      .openapi({ example: ['qwen3:latest', 'qwen3:4b', 'qwen3:8b'] }),
-    default_tag: z
-      .string()
-      .nullable()
-      .openapi({
-        example: 'qwen3:latest',
-        description: 'Pull-ready tag whose label is "latest". null when no latest tag exists.',
-      }),
-  })
-  .openapi('ModelTags');
+export const ModelTagsSchema = z.object({
+  page_url: z.string(),
+  id: z.string(),
+  tags: z.array(z.string()),
+  default_tag: z.string().nullable(),
+});
 
-// ─── Health check schemas ─────────────────────────────────────────────────────
+// ─── /health ─────────────────────────────────────────────────────────────────
 
-/**
- * Result of a single scraper probe. Used inside HealthStatus.checks.
- */
-export const CheckResultSchema = z
-  .object({
-    ok: z.boolean().openapi({ example: true }),
-    count: z
-      .number()
-      .int()
-      .optional()
-      .openapi({ example: 5, description: 'Number of results returned when check passed' }),
-    error: z
-      .string()
-      .optional()
-      .openapi({ example: 'Error: selector returned 0 results' }),
-  })
-  .openapi('CheckResult');
+export const CheckResultSchema = z.object({
+  ok: z.boolean(),
+  count: z.number().int().optional(),
+  error: z.string().optional(),
+});
 
-/**
- * Response payload of GET /health.
- * Mirrors the HealthStatus interface in api/src/index.ts.
- */
-export const HealthStatusSchema = z
-  .object({
-    ok: z.boolean().openapi({ example: true }),
-    timestamp: z
-      .string()
-      .openapi({ example: '2026-01-01T00:00:00.000Z', description: 'ISO 8601 timestamp' }),
-    checks: z
-      .object({
-        search: CheckResultSchema,
-        model: CheckResultSchema,
-      })
-      .openapi({ description: 'Per-scraper probe results' }),
-  })
-  .openapi('HealthStatus');
+export const HealthStatusSchema = z.object({
+  ok: z.boolean(),
+  timestamp: z.string(),
+  checks: z.object({
+    search: CheckResultSchema,
+    model: CheckResultSchema,
+  }),
+});
 
-// ─── Error response ───────────────────────────────────────────────────────────
+// ─── Error ───────────────────────────────────────────────────────────────────
 
-/**
- * Generic error response shape returned on 4xx / 5xx.
- */
-export const ErrorSchema = z
-  .object({
-    error: z
-      .string()
-      .openapi({ example: 'Error: selector returned 0 results' }),
-  })
-  .openapi('ApiError');
+export const ErrorResponseSchema = z.object({
+  error: z.string(),
+});

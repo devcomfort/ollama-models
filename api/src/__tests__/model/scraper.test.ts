@@ -14,8 +14,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// ─── scrapeModelPage ──────────────────────────────────────────────────────────
-
+// scrapeModelPage가 모델 상세 페이지 HTML을 태그 목록으로 올바르게 변환하는지 검증한다.
 describe('scrapeModelPage', () => {
   it('returns pull-ready tags for a library model (no library/ prefix)', async () => {
     const html = '<a href="/library/mistral:latest" class="md:hidden flex flex-col space-y-[6px] group">x</a>';

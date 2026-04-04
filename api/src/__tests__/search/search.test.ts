@@ -8,11 +8,16 @@ vi.mock('../../search/scraper', () => ({
 
 const mockScrape = vi.mocked(scrapeSearchPage);
 
+// Resets mock call counts and return-value queues after each test so that
+// toHaveBeenCalledTimes() assertions are always scoped to a single test.
 afterEach(() => {
   vi.clearAllMocks();
 });
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
+// Shared ModelPage arrays used across multiple tests. PAGE_2 contains
+// 'library/qwen3' which also appears in PAGE_1, making it suitable for
+// cross-page deduplication assertions.
 
 const PAGE_1 = [
   { http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' },
@@ -26,7 +31,9 @@ const PAGE_3 = [
   { http_url: 'https://ollama.com/library/gemma3', model_id: 'library/gemma3' },
 ];
 
-// ─── single page ──────────────────────────────────────────────────────────────
+// ─── single page ────────────────────────────────────────────────────────────────
+// search() called with a plain page number: verifies SearchResult shape,
+// correct scraper call args, and the default-to-page-1 behaviour.
 
 describe('search() — single page', () => {
   it('returns a SearchResult for the requested page', async () => {
@@ -51,7 +58,10 @@ describe('search() — single page', () => {
   });
 });
 
-// ─── page range ───────────────────────────────────────────────────────────────
+// ─── page range ────────────────────────────────────────────────────────────────
+// search() called with a { from, to } range object: verifies parallel fetch
+// of all pages, cross-page deduplication, page_range storage, single-element
+// range edge case, partial results on page failure, and ascending order.
 
 describe('search() — page range', () => {
   it('fetches all pages concurrently', async () => {
@@ -124,6 +134,8 @@ describe('search() — page range', () => {
 });
 
 // ─── maxRetries ───────────────────────────────────────────────────────────────
+// search() called with a maxRetries argument: verifies retry-on-failure,
+// drop after retry exhaustion, and independent per-page retry counters.
 
 describe('search() — maxRetries', () => {
   it('retries a failing page and resolves on a subsequent attempt', async () => {

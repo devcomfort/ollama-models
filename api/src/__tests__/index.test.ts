@@ -15,11 +15,16 @@ import { scrapeModelPage } from '../model/scraper';
 const mockSearch = vi.mocked(scrapeSearchPage);
 const mockModel = vi.mocked(scrapeModelPage);
 
+// Resets mock call counts, return values, and implementations before each test
+// so assertions like toHaveBeenCalledWith() reflect only the current test.
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 // ─── GET /search ──────────────────────────────────────────────────────────────
+// Covers: scraper is called with the correct page/keyword args, response is
+// wrapped in a SearchResult envelope, page defaults to 1, invalid page is
+// clamped to 1, and scraper errors are forwarded as 500 { error } responses.
 
 describe('GET /search', () => {
   it('returns a SearchResult with model pages', async () => {
@@ -88,6 +93,8 @@ describe('GET /search', () => {
 });
 
 // ─── GET /model ───────────────────────────────────────────────────────────────
+// Covers: ModelTags shape for library and community models, null default_tag,
+// missing/blank/bare-name 400 validation errors, and scraper error → 500.
 
 describe('GET /model', () => {
   it('returns a ModelTags with tags and id for a library model', async () => {
@@ -162,6 +169,8 @@ describe('GET /model', () => {
 });
 
 // ─── GET /health ──────────────────────────────────────────────────────────────
+// Covers: 200 ok:true when both probes pass, 503 ok:false for each individual
+// probe failure with error capture, and per-probe result count reflection.
 
 describe('GET /health', () => {
   it('returns 200 and ok:true when both scrapers succeed', async () => {

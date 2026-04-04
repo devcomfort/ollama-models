@@ -1,15 +1,17 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
-import type { MiddlewareHandler } from 'hono';
 import { scrapeSearchPage } from './search/scraper';
 import { scrapeModelPage } from './model/scraper';
 import { OLLAMA_BASE } from './constants';
-import type { ModelPage } from './search/types';
+import type { SearchResult, ModelPage } from './search/types';
+import type { ModelTags } from './model/types';
 import {
+  SearchQuerySchema,
   SearchResultSchema,
+  ModelQuerySchema,
   ModelTagsSchema,
   HealthStatusSchema,
-  ErrorSchema,
+  ErrorResponseSchema,
 } from './schemas';
 
 type Bindings = {
@@ -157,54 +159,57 @@ function buildHealthAlertMessage(status: HealthStatus): string {
   return lines.join('\n');
 }
 
-const app = new OpenAPIHono<{ Bindings: Bindings }>();
+const app = new OpenAPIHono<{ Bindings: Bindings }>({
+  defaultHook: (result, c) => {
+    if (!result.success) {
+      return c.json({ error: result.error.message }, 400);
+    }
+  },
+});
 
 // Allow cross-origin requests so browser-based clients can call the API
 app.use('*', cors());
 
 // ---------------------------------------------------------------------------
-// Cache middleware
-// Wraps downstream OpenAPIHono handlers with a Cloudflare Cache API
-// lookup/store. Returns the cached Response on a hit; on a miss calls next(),
-// stores the JSON response at the request URL for `ttl` seconds, and returns
-// the fresh response.
+// Cache router
+// Wraps route handlers with a Cloudflare Cache API lookup/store.
+// Returns the cached Response on a hit; on a miss runs the handler, caches
+// the result for `ttl` seconds, and returns the fresh response.
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a Hono middleware that caches the downstream handler's JSON response
- * in the Cloudflare Cache API for the given TTL.
+ * Wraps a route handler with a Cloudflare Cache API lookup/store.
  *
- * On a cache hit the middleware terminates the request immediately.
- * On a miss it calls `next()`, reads the response produced by the downstream
- * handler, stores a clone in the cache, and replaces `c.res` with a response
- * that includes the `Cache-Control` header.
+ * Returns the cached {@link Response} immediately on a cache hit. On a miss,
+ * executes the handler, stores the JSON response at the request URL for the
+ * given TTL, and returns the fresh response.
  *
  * `/health` is intentionally excluded from caching because it must always
  * reflect live scraper state.
  *
  * @param ttl - Cache lifetime in seconds.
- * @returns MiddlewareHandler that caches the downstream response.
+ * @param handler - The original route handler to wrap.
  */
-function withCache(ttl: number): MiddlewareHandler<{ Bindings: Bindings }> {
-  return async (c, next) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function withCache(ttl: number, handler: (c: any) => Promise<Response>): (c: any) => Promise<Response> {
+  return async (c) => {
     const cache = caches.default;
     const cacheKey = new Request(c.req.url);
 
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
 
-    await next();
-
-    const body = await c.res.clone().text();
+    const res = await handler(c);
+    const body = await res.text();
     const fresh = new Response(body, {
-      status: c.res.status,
+      status: res.status,
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': `public, max-age=${ttl}`,
       },
     });
     await cache.put(cacheKey, fresh.clone());
-    c.res = fresh;
+    return fresh;
   };
 }
 
@@ -214,26 +219,28 @@ const SEARCH_TTL = 60;
 const MODEL_TTL = 300;
 
 // ---------------------------------------------------------------------------
-// Route definitions
+// Route definitions (OpenAPI metadata + Zod request/response schemas)
 // ---------------------------------------------------------------------------
 
 const searchRoute = createRoute({
   method: 'get',
   path: '/search',
-  request: {
-    query: z.object({
-      q: z.string().optional().openapi({ param: { name: 'q', in: 'query' }, example: 'qwen3' }),
-      page: z.string().optional().openapi({ param: { name: 'page', in: 'query' }, example: '1' }),
-    }),
-  },
+  tags: ['Search'],
+  summary: 'Search Ollama models by keyword',
+  description:
+    'Returns all model pages found on the requested Ollama search results page. ' +
+    '`page` defaults to `1`; invalid values are clamped to `1`. ' +
+    '`q` defaults to an empty string (all models). ' +
+    'Responds with `500` when the scraper throws (e.g. Ollama down, HTML structure changed).',
+  request: { query: SearchQuerySchema },
   responses: {
     200: {
       content: { 'application/json': { schema: SearchResultSchema } },
-      description: 'Search results',
+      description: 'Model pages found on the requested search page.',
     },
     500: {
-      content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Scraper error',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Scraper error — Ollama may be down or its HTML structure changed.',
     },
   },
 });
@@ -241,23 +248,24 @@ const searchRoute = createRoute({
 const modelRoute = createRoute({
   method: 'get',
   path: '/model',
-  request: {
-    query: z.object({
-      name: z.string().optional().openapi({ param: { name: 'name', in: 'query' }, example: 'library/qwen3' }),
-    }),
-  },
+  tags: ['Model'],
+  summary: 'Retrieve all available tags for a model',
+  description:
+    'Returns the model URL, model ID, full tag list, and `default_tag` (`null` when no `latest` tag exists). ' +
+    'Accepted `name` formats: `library/qwen3`, `RogerBen/custom-model`, or a full `https://ollama.com/…` URL.',
+  request: { query: ModelQuerySchema },
   responses: {
     200: {
       content: { 'application/json': { schema: ModelTagsSchema } },
-      description: 'Model tags',
+      description: 'Model tags and metadata.',
     },
     400: {
-      content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Missing or invalid name parameter',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Missing or invalid `name` parameter.',
     },
     500: {
-      content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Scraper error',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Scraper error.',
     },
   },
 });
@@ -265,14 +273,19 @@ const modelRoute = createRoute({
 const healthRoute = createRoute({
   method: 'get',
   path: '/health',
+  tags: ['Health'],
+  summary: 'Run a live health check against both scrapers',
+  description:
+    'Probes both scrapers with stable inputs and returns a structured result. ' +
+    'Responds with `200` when all checks pass, `503` when any fail. Never throws.',
   responses: {
     200: {
       content: { 'application/json': { schema: HealthStatusSchema } },
-      description: 'All scrapers healthy',
+      description: 'All scraper checks passed.',
     },
     503: {
       content: { 'application/json': { schema: HealthStatusSchema } },
-      description: 'One or more scrapers unhealthy',
+      description: 'One or more scraper checks failed.',
     },
   },
 });
@@ -281,26 +294,16 @@ const healthRoute = createRoute({
 // Route handlers
 // ---------------------------------------------------------------------------
 
-app.use(searchRoute.getRoutingPath(), withCache(SEARCH_TTL));
-
-/**
- * `GET /search?q={keyword}&page={n}`
- *
- * Returns a {@link SearchResultSchema} containing all model pages found on the
- * requested Ollama search page. `page` defaults to `1`; invalid values are
- * clamped to `1`. `q` defaults to an empty string (all models).
- *
- * Responds with `500` when the scraper throws (e.g. Ollama down, HTML
- * structure changed).
- */
-app.openapi(searchRoute, async (c) => {
-  const page = Math.max(1, parseInt(c.req.query('page') ?? '1', 10) || 1);
-  const keyword = c.req.query('q') ?? '';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+app.openapi(searchRoute, withCache(SEARCH_TTL, async (c) => {
+  const { q, page: pageStr } = c.req.valid('query');
+  const page = Math.max(1, parseInt(pageStr ?? '1', 10) || 1);
+  const keyword = q ?? '';
 
   try {
     const pages = await scrapeSearchPage(page, keyword);
-    const result = { pages, page_range: page, keyword };
-    return c.json(result, 200);
+    const result: SearchResult = { pages, page_range: page, keyword };
+    return c.json(result);
   } catch (err) {
     if (c.env?.ALERT_WEBHOOK_URL) {
       const scrapeUrl = `${OLLAMA_BASE}/search?q=${encodeURIComponent(keyword)}&p=${page}`;
@@ -328,26 +331,12 @@ app.openapi(searchRoute, async (c) => {
     }
     return c.json({ error: String(err) }, 500);
   }
-});
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+}) as any);
 
-app.use(modelRoute.getRoutingPath(), withCache(MODEL_TTL));
-
-/**
- * `GET /model?name={model-name}`
- *
- * Returns a {@link ModelTagsSchema} containing the model URL, model ID, full tag
- * list, and `default_tag` (`null` when no `latest` tag exists).
- *
- * Accepted `name` formats:
- * - `library/qwen3` — explicit library path for official models
- * - `RogerBen/qwen3.5-35b-opus-distill` — community model
- * - `https://ollama.com/library/qwen3` — full URL
- *
- * Responds with `400` when `name` is missing or blank, `500` on scraper
- * error.
- */
-app.openapi(modelRoute, async (c) => {
-  const name = c.req.query('name') ?? '';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+app.openapi(modelRoute, withCache(MODEL_TTL, async (c) => {
+  const { name } = c.req.valid('query');
   if (!name.trim()) {
     return c.json({ error: '`name` query parameter is required' }, 400);
   }
@@ -369,8 +358,8 @@ app.openapi(modelRoute, async (c) => {
       model_id: path,
     };
 
-    const result = await scrapeModelPage(modelPage);
-    return c.json(result, 200);
+    const result: ModelTags = await scrapeModelPage(modelPage);
+    return c.json(result);
   } catch (err) {
     if (c.env?.ALERT_WEBHOOK_URL) {
       const scrapeUrl = `${OLLAMA_BASE}/${path}/tags`;
@@ -398,18 +387,25 @@ app.openapi(modelRoute, async (c) => {
     }
     return c.json({ error: String(err) }, 500);
   }
-});
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+}) as any);
 
-/**
- * `GET /health`
- *
- * Probes both scrapers with stable inputs and returns a {@link HealthStatusSchema}
- * object. Responds with `200` when all checks pass, `503` when any fail.
- * Never throws — all probe errors are captured in the response body.
- */
 app.openapi(healthRoute, async (c) => {
   const status = await runHealthCheck();
   return c.json(status, status.ok ? 200 : 503);
+});
+
+// Serves the generated OpenAPI 3.0 spec as JSON.
+app.doc('/openapi.json', {
+  openapi: '3.0.0',
+  info: {
+    title: 'ollama-models Workers API',
+    version: '0.1.0',
+    description:
+      'Scrapes ollama.com to expose model search and tag listing as a JSON HTTP API. ' +
+      'Hosted on Cloudflare Workers.',
+  },
+  servers: [{ url: 'https://ollama-models-api.devcomfort.workers.dev' }],
 });
 
 // ---------------------------------------------------------------------------
