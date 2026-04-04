@@ -14,16 +14,15 @@ MOCK_SEARCH = {
         {"http_url": "https://ollama.com/library/qwen3"},
         {"http_url": "https://ollama.com/library/mistral"},
     ],
-    "page_id": 1,
+    "page_range": 1,
     "keyword": "qwen3",
 }
 
 MOCK_MODEL = {
-    "model_list": [
-        {"http_url": "https://ollama.com/library/qwen3", "id": "qwen3:latest"},
-        {"http_url": "https://ollama.com/library/qwen3", "id": "qwen3:4b"},
-    ],
-    "default_model_id": "qwen3:latest",
+    "page_url": "https://ollama.com/library/qwen3",
+    "id": "library/qwen3",
+    "tags": ["qwen3:latest", "qwen3:4b"],
+    "default_tag": "qwen3:latest",
 }
 
 
@@ -48,7 +47,7 @@ def test_search_returns_search_result(httpx_mock: HTTPXMock):
     httpx_mock.add_response(json=MOCK_SEARCH)
     result = OllamaModelsClient().search("qwen3", page=1)
     assert result.keyword == "qwen3"
-    assert result.page_id == 1
+    assert result.page_range == 1
     assert len(result.pages) == 2
     assert result.pages[0].http_url == "https://ollama.com/library/qwen3"
 
@@ -111,10 +110,10 @@ async def test_search_async_raises_on_http_error(httpx_mock: HTTPXMock):
 def test_get_model_returns_model_list(httpx_mock: HTTPXMock):
     httpx_mock.add_response(json=MOCK_MODEL)
     result = OllamaModelsClient().get_model("qwen3")
-    assert result.default_model_id == "qwen3:latest"
-    assert len(result.model_list) == 2
-    assert result.model_list[0].id == "qwen3:latest"
-    assert result.model_list[1].id == "qwen3:4b"
+    assert result.page_url == "https://ollama.com/library/qwen3"
+    assert result.id == "library/qwen3"
+    assert result.tags == ["qwen3:latest", "qwen3:4b"]
+    assert result.default_tag == "qwen3:latest"
 
 
 def test_get_model_sends_name_param(httpx_mock: HTTPXMock):
@@ -143,8 +142,8 @@ def test_get_model_raises_on_http_error(httpx_mock: HTTPXMock):
 async def test_get_model_async_returns_model_list(httpx_mock: HTTPXMock):
     httpx_mock.add_response(json=MOCK_MODEL)
     result = await OllamaModelsClient().get_model_async("qwen3")
-    assert result.default_model_id == "qwen3:latest"
-    assert len(result.model_list) == 2
+    assert result.page_url == "https://ollama.com/library/qwen3"
+    assert result.tags == ["qwen3:latest", "qwen3:4b"]
 
 
 async def test_get_model_async_sends_name_param(httpx_mock: HTTPXMock):

@@ -19,19 +19,18 @@ afterEach(() => {
 
 const MOCK_SEARCH: unknown = {
   pages: [
-    { http_url: 'https://ollama.com/library/qwen3' },
-    { http_url: 'https://ollama.com/library/mistral' },
+    { http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' },
+    { http_url: 'https://ollama.com/library/mistral', model_id: 'library/mistral' },
   ],
-  page_id: 1,
+  page_range: 1,
   keyword: 'qwen3',
 };
 
 const MOCK_MODEL: unknown = {
-  model_list: [
-    { http_url: 'https://ollama.com/library/qwen3', id: 'qwen3:latest' },
-    { http_url: 'https://ollama.com/library/qwen3', id: 'qwen3:4b' },
-  ],
-  default_model_id: 'qwen3:latest',
+  page_url: 'https://ollama.com/library/qwen3',
+  id: 'library/qwen3',
+  tags: ['qwen3:latest', 'qwen3:4b'],
+  default_tag: 'qwen3:latest',
 };
 
 // ─── DEFAULT_BASE_URL ─────────────────────────────────────────────────────────
@@ -69,7 +68,7 @@ describe('search()', () => {
     vi.stubGlobal('fetch', mockFetch(MOCK_SEARCH));
     const result = await new OllamaModelsClient().search('qwen3', 1);
     expect(result.keyword).toBe('qwen3');
-    expect(result.page_id).toBe(1);
+    expect(result.page_range).toBe(1);
     expect(result.pages).toHaveLength(2);
     expect(result.pages[0].http_url).toBe('https://ollama.com/library/qwen3');
   });
@@ -105,18 +104,39 @@ describe('search()', () => {
       'HTTP 500',
     );
   });
+
+  it('throws when the response does not match the SearchResult schema', async () => {
+    vi.stubGlobal('fetch', mockFetch({ pages: 'not-an-array', page_range: 1, keyword: '' }));
+    await expect(new OllamaModelsClient().search()).rejects.toThrow(
+      'SearchResult.pages: expected array',
+    );
+  });
+
+  it('throws when a ModelPage entry is missing model_id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({
+        pages: [{ http_url: 'https://ollama.com/library/qwen3' }],
+        page_range: 1,
+        keyword: 'qwen3',
+      }),
+    );
+    await expect(new OllamaModelsClient().search('qwen3')).rejects.toThrow(
+      'SearchResult.pages[0].model_id: expected string',
+    );
+  });
 });
 
 // ─── getModel() ───────────────────────────────────────────────────────────────
 
 describe('getModel()', () => {
-  it('returns a parsed ModelList', async () => {
+  it('returns a parsed ModelTags', async () => {
     vi.stubGlobal('fetch', mockFetch(MOCK_MODEL));
     const result = await new OllamaModelsClient().getModel('qwen3');
-    expect(result.default_model_id).toBe('qwen3:latest');
-    expect(result.model_list).toHaveLength(2);
-    expect(result.model_list[0].id).toBe('qwen3:latest');
-    expect(result.model_list[1].id).toBe('qwen3:4b');
+    expect(result.page_url).toBe('https://ollama.com/library/qwen3');
+    expect(result.id).toBe('library/qwen3');
+    expect(result.tags).toEqual(['qwen3:latest', 'qwen3:4b']);
+    expect(result.default_tag).toBe('qwen3:latest');
   });
 
   it('sends the model name as a query parameter', async () => {
@@ -139,6 +159,28 @@ describe('getModel()', () => {
     vi.stubGlobal('fetch', mockFetch({}, 404));
     await expect(new OllamaModelsClient().getModel('nonexistent')).rejects.toThrow(
       'HTTP 404',
+    );
+  });
+
+  it('throws when the response does not match the ModelTags schema', async () => {
+    vi.stubGlobal('fetch', mockFetch({ page_url: 'https://ollama.com/library/qwen3', id: 'library/qwen3', tags: null, default_tag: null }));
+    await expect(new OllamaModelsClient().getModel('qwen3')).rejects.toThrow(
+      'ModelTags.tags: expected array',
+    );
+  });
+
+  it('throws when a tag entry is not a string', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({
+        page_url: 'https://ollama.com/library/qwen3',
+        id: 'library/qwen3',
+        tags: [42],
+        default_tag: null,
+      }),
+    );
+    await expect(new OllamaModelsClient().getModel('qwen3')).rejects.toThrow(
+      'ModelTags.tags[0]: expected string',
     );
   });
 });

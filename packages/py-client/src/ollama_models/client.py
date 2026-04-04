@@ -4,7 +4,13 @@ from typing import Dict
 
 import httpx
 
-from .types import ModelList, ModelPage, ModelWeight, SearchResult
+from .types import (
+    ModelTags,
+    ModelPage,
+    PageRange,
+    PageRangeDetail,
+    SearchResult,
+)
 
 DEFAULT_BASE_URL = "https://ollama-models-api.devcomfort.workers.dev"
 
@@ -55,19 +61,19 @@ class OllamaModelsClient:
     # Model
     # ------------------------------------------------------------------
 
-    def get_model(self, name: str) -> ModelList:
+    def get_model(self, name: str) -> ModelTags:
         with httpx.Client() as client:
             res = client.get(f"{self._base_url}/model", params={"name": name})
             res.raise_for_status()
             data = res.json()
-        return _parse_model_list(data)
+        return _parse_model_tags(data)
 
-    async def get_model_async(self, name: str) -> ModelList:
+    async def get_model_async(self, name: str) -> ModelTags:
         async with httpx.AsyncClient() as client:
             res = await client.get(f"{self._base_url}/model", params={"name": name})
             res.raise_for_status()
             data = res.json()
-        return _parse_model_list(data)
+        return _parse_model_tags(data)
 
 
 # ------------------------------------------------------------------
@@ -76,17 +82,26 @@ class OllamaModelsClient:
 
 
 def _parse_search_result(data: dict) -> SearchResult:
+    raw_range = data["page_range"]
+    if isinstance(raw_range, int):
+        page_range: PageRange = raw_range
+    else:
+        page_range = PageRangeDetail(
+            from_page=int(raw_range["from"]), to=int(raw_range["to"])
+        )
     return SearchResult(
         pages=[ModelPage(http_url=p["http_url"]) for p in data["pages"]],
-        page_id=int(data["page_id"]),
+        page_range=page_range,
         keyword=str(data["keyword"]),
     )
 
 
-def _parse_model_list(data: dict) -> ModelList:
-    return ModelList(
-        model_list=[
-            ModelWeight(http_url=w["http_url"], id=w["id"]) for w in data["model_list"]
-        ],
-        default_model_id=str(data["default_model_id"]),
+def _parse_model_tags(data: dict) -> ModelTags:
+    return ModelTags(
+        page_url=str(data["page_url"]),
+        id=str(data["id"]),
+        tags=[str(t) for t in data["tags"]],
+        default_tag=str(data["default_tag"])
+        if data["default_tag"] is not None
+        else None,
     )

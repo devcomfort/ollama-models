@@ -1,5 +1,15 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional, Union
+
+
+@dataclass
+class PageRangeDetail:
+    from_page: int
+    to: int
+
+
+# A single 1-based page number, or an inclusive from/to page range.
+PageRange = Union[int, PageRangeDetail]
 
 
 @dataclass
@@ -10,17 +20,13 @@ class ModelPage:
 @dataclass
 class SearchResult:
     pages: List[ModelPage]
-    page_id: int
+    page_range: PageRange
     keyword: str
 
 
 @dataclass
-class ModelWeight:
-    http_url: str
+class ModelTags:
+    page_url: str
     id: str
-
-
-@dataclass
-class ModelList:
-    model_list: List[ModelWeight]
-    default_model_id: str
+    tags: List[str]
+    default_tag: Optional[str]

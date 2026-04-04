@@ -1,10 +1,9 @@
 from .client import OllamaModelsClient
-from .types import ModelList, ModelPage, ModelWeight, SearchResult
+from .types import ModelTags, ModelPage, SearchResult
 
 __all__ = [
     "OllamaModelsClient",
     "SearchResult",
     "ModelPage",
-    "ModelList",
-    "ModelWeight",
+    "ModelTags",
 ]
