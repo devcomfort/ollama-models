@@ -24,7 +24,12 @@
 3. 기존 단위 테스트가 OpenAPIHono 마이그레이션 후에도 통과한다
 4. `openapi.json`이 레포에 커밋되어 버전 관리된다
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-PLAN-zod-schemas.md — Zod 스키마 7개 정의 (api/src/schemas.ts)
+- [ ] 01-PLAN-openapihono-migration.md — dep 설치 + OpenAPIHono 마이그레이션
+- [ ] 01-PLAN-spec-generation.md — build:spec 스크립트 + openapi.json 커밋
 
 ### Phase 2: Client Schema Validation
 **Goal:** TS·Python 클라이언트 타입이 OpenAPI spec과 일치하는지 커맨드 하나로 검증할 수 있다
@@ -58,7 +63,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. OpenAPI Foundation | 0/? | Not started | - |
+| 1. OpenAPI Foundation | 0/3 | Not started | - |
 | 2. Client Schema Validation | 0/? | Not started | - |
 | 3. CI/CD Pipeline | 0/? | Not started | - |
 
