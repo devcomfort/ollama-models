@@ -68,24 +68,24 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OPENAPI-01 | — | Pending |
-| OPENAPI-02 | — | Pending |
-| OPENAPI-03 | — | Pending |
-| OPENAPI-04 | — | Pending |
-| OPENAPI-05 | — | Pending |
-| CLIENT-01 | — | Pending |
-| CLIENT-02 | — | Pending |
-| CLIENT-03 | — | Pending |
-| CLIENT-04 | — | Pending |
-| CLIENT-05 | — | Pending |
-| CLIENT-06 | — | Pending |
-| CLIENT-07 | — | Pending |
-| CLIENT-08 | — | Pending |
-| CI-01 | — | Pending |
-| CI-02 | — | Pending |
-| CI-03 | — | Pending |
-| CI-04 | — | Pending |
-| CI-05 | — | Pending |
-| CI-06 | — | Pending |
-| CI-07 | — | Pending |
-| CI-08 | — | Pending |
+| OPENAPI-01 | Phase 1 | Pending |
+| OPENAPI-02 | Phase 1 | Pending |
+| OPENAPI-03 | Phase 1 | Pending |
+| OPENAPI-04 | Phase 1 | Pending |
+| OPENAPI-05 | Phase 1 | Pending |
+| CLIENT-01 | Phase 2 | Pending |
+| CLIENT-02 | Phase 2 | Pending |
+| CLIENT-03 | Phase 2 | Pending |
+| CLIENT-04 | Phase 2 | Pending |
+| CLIENT-05 | Phase 2 | Pending |
+| CLIENT-06 | Phase 2 | Pending |
+| CLIENT-07 | Phase 2 | Pending |
+| CLIENT-08 | Phase 2 | Pending |
+| CI-01 | Phase 3 | Pending |
+| CI-02 | Phase 3 | Pending |
+| CI-03 | Phase 3 | Pending |
+| CI-04 | Phase 3 | Pending |
+| CI-05 | Phase 3 | Pending |
+| CI-06 | Phase 3 | Pending |
+| CI-07 | Phase 3 | Pending |
+| CI-08 | Phase 3 | Pending |
