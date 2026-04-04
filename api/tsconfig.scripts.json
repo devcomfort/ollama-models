@@ -1,0 +1,12 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": ["@cloudflare/workers-types", "node"],
+        "lib": ["ES2022"],
+        "allowImportingTsExtensions": true,
+        "skipLibCheck": true
+    },
+    "include": [
+        "scripts/**/*.ts"
+    ]
+}

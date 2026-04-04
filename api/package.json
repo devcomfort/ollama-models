@@ -8,7 +8,9 @@
         "deploy": "wrangler deploy",
         "type-check": "tsc --noEmit",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "gen-openapi": "tsx scripts/gen-openapi.ts",
+        "serve-for-ci": "tsx scripts/serve-for-ci.ts"
     },
     "dependencies": {
         "@hono/zod-openapi": "1.2.4",
@@ -19,6 +21,8 @@
     },
     "devDependencies": {
         "@cloudflare/workers-types": "^4.0.0",
+        "@hono/node-server": "^1.19.12",
+        "@types/node": "^25.5.2",
         "tsx": "^4.21.0",
         "typescript": "^5.0.0",
         "vitest": "^2.0.0",
