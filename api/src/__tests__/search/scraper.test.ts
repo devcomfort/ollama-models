@@ -35,6 +35,7 @@ const SKIP_SEGMENTS_HTML = `
 // ─── scrapeSearchPage ─────────────────────────────────────────────────────────
 
 describe('scrapeSearchPage', () => {
+  // Verifies duplicate URLs are removed and unique library model URLs are returned.
   it('returns unique library model URLs', async () => {
     vi.stubGlobal('fetch', mockFetch(LIBRARY_MODELS_HTML));
     const pages = await scrapeSearchPage(1, 'qwen');
@@ -43,13 +44,13 @@ describe('scrapeSearchPage', () => {
       { http_url: 'https://ollama.com/library/mistral', model_id: 'library/mistral' },
     ]);
   });
-
-  it('includes user-contributed model URLs', async () => {
+  it('includes user-contributed model URLs alongside library model URLs', async () => {
     vi.stubGlobal('fetch', mockFetch(USER_MODELS_HTML));
     const pages = await scrapeSearchPage(1, '');
     expect(pages.map((p) => p.http_url)).toContain('https://ollama.com/RogerBen/custom-model');
   });
 
+  // Verifies known navigation path segments like /search and /docs are filtered out.
   it('filters out known navigation segments', async () => {
     vi.stubGlobal('fetch', mockFetch(SKIP_SEGMENTS_HTML));
     const pages = await scrapeSearchPage(1, '');
@@ -58,6 +59,7 @@ describe('scrapeSearchPage', () => {
     ]);
   });
 
+  // Verifies page number and keyword are forwarded as query parameters in the Ollama search URL.
   it('passes page number and keyword to the Ollama search URL', async () => {
     const fetchMock = mockFetch(LIBRARY_MODELS_HTML);
     vi.stubGlobal('fetch', fetchMock);
@@ -67,6 +69,7 @@ describe('scrapeSearchPage', () => {
     expect(calledUrl).toContain('q=mistral');
   });
 
+  // Verifies no q param is appended to the URL when keyword is empty.
   it('does not append q param when keyword is empty', async () => {
     const fetchMock = mockFetch(LIBRARY_MODELS_HTML);
     vi.stubGlobal('fetch', fetchMock);
@@ -75,6 +78,7 @@ describe('scrapeSearchPage', () => {
     expect(calledUrl).not.toContain('q=');
   });
 
+  // Verifies a descriptive error naming the selector is thrown when no cards are matched.
   it('throws a descriptive error when the selector matches no cards', async () => {
     vi.stubGlobal('fetch', mockFetch('<p>No results</p>'));
     await expect(scrapeSearchPage(1, 'zzz-no-match')).rejects.toThrow(
@@ -82,6 +86,7 @@ describe('scrapeSearchPage', () => {
     );
   });
 
+  // Verifies an HTTP error is thrown when Ollama returns a non-2xx status code.
   it('throws when Ollama returns a non-2xx status', async () => {
     vi.stubGlobal('fetch', mockFetch('', 503));
     await expect(scrapeSearchPage(1, '')).rejects.toThrow('HTTP 503');
