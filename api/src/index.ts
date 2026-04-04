@@ -1,11 +1,16 @@
-import { Hono } from 'hono';
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { cors } from 'hono/cors';
-import type { Handler } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 import { scrapeSearchPage } from './search/scraper';
 import { scrapeModelPage } from './model/scraper';
 import { OLLAMA_BASE } from './constants';
-import type { SearchResult, ModelPage } from './search/types';
-import type { ModelTags } from './model/types';
+import type { ModelPage } from './search/types';
+import {
+  SearchResultSchema,
+  ModelTagsSchema,
+  HealthStatusSchema,
+  ErrorSchema,
+} from './schemas';
 
 type Bindings = {
   /** Webhook URL to POST alert notifications to when a scheduled health check fails. */
@@ -152,53 +157,54 @@ function buildHealthAlertMessage(status: HealthStatus): string {
   return lines.join('\n');
 }
 
-const app = new Hono<{ Bindings: Bindings }>();
+const app = new OpenAPIHono<{ Bindings: Bindings }>();
 
 // Allow cross-origin requests so browser-based clients can call the API
 app.use('*', cors());
 
 // ---------------------------------------------------------------------------
-// Cache router
-// Wraps route handlers with a Cloudflare Cache API lookup/store.
-// Returns the cached Response on a hit; on a miss runs the handler, caches
-// the result for `ttl` seconds, and returns the fresh response.
+// Cache middleware
+// Wraps downstream OpenAPIHono handlers with a Cloudflare Cache API
+// lookup/store. Returns the cached Response on a hit; on a miss calls next(),
+// stores the JSON response at the request URL for `ttl` seconds, and returns
+// the fresh response.
 // ---------------------------------------------------------------------------
 
 /**
- * Wraps a Hono route handler with a Cloudflare Cache API lookup/store.
+ * Returns a Hono middleware that caches the downstream handler's JSON response
+ * in the Cloudflare Cache API for the given TTL.
  *
- * Returns the cached {@link Response} immediately on a cache hit. On a miss,
- * executes the handler, stores the JSON response at the request URL for the
- * given TTL, and returns the fresh response.
+ * On a cache hit the middleware terminates the request immediately.
+ * On a miss it calls `next()`, reads the response produced by the downstream
+ * handler, stores a clone in the cache, and replaces `c.res` with a response
+ * that includes the `Cache-Control` header.
  *
  * `/health` is intentionally excluded from caching because it must always
  * reflect live scraper state.
  *
  * @param ttl - Cache lifetime in seconds.
- * @param handler - The original Hono route handler to wrap.
+ * @returns MiddlewareHandler that caches the downstream response.
  */
-function withCache(
-  ttl: number,
-  handler: Handler<{ Bindings: Bindings }>,
-): Handler<{ Bindings: Bindings }> {
-  return async (c) => {
+function withCache(ttl: number): MiddlewareHandler<{ Bindings: Bindings }> {
+  return async (c, next) => {
     const cache = caches.default;
     const cacheKey = new Request(c.req.url);
 
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
 
-    const res = await handler(c, () => Promise.resolve());
-    const body = await res.text();
+    await next();
+
+    const body = await c.res.clone().text();
     const fresh = new Response(body, {
-      status: res.status,
+      status: c.res.status,
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': `public, max-age=${ttl}`,
       },
     });
     await cache.put(cacheKey, fresh.clone());
-    return fresh;
+    c.res = fresh;
   };
 }
 
@@ -207,24 +213,94 @@ const SEARCH_TTL = 60;
 /** 5-minute TTL so tag changes are visible within 5 minutes. */
 const MODEL_TTL = 300;
 
+// ---------------------------------------------------------------------------
+// Route definitions
+// ---------------------------------------------------------------------------
+
+const searchRoute = createRoute({
+  method: 'get',
+  path: '/search',
+  request: {
+    query: z.object({
+      q: z.string().optional().openapi({ param: { name: 'q', in: 'query' }, example: 'qwen3' }),
+      page: z.string().optional().openapi({ param: { name: 'page', in: 'query' }, example: '1' }),
+    }),
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: SearchResultSchema } },
+      description: 'Search results',
+    },
+    500: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Scraper error',
+    },
+  },
+});
+
+const modelRoute = createRoute({
+  method: 'get',
+  path: '/model',
+  request: {
+    query: z.object({
+      name: z.string().optional().openapi({ param: { name: 'name', in: 'query' }, example: 'library/qwen3' }),
+    }),
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ModelTagsSchema } },
+      description: 'Model tags',
+    },
+    400: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Missing or invalid name parameter',
+    },
+    500: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Scraper error',
+    },
+  },
+});
+
+const healthRoute = createRoute({
+  method: 'get',
+  path: '/health',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: HealthStatusSchema } },
+      description: 'All scrapers healthy',
+    },
+    503: {
+      content: { 'application/json': { schema: HealthStatusSchema } },
+      description: 'One or more scrapers unhealthy',
+    },
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Route handlers
+// ---------------------------------------------------------------------------
+
+app.use(searchRoute.getRoutingPath(), withCache(SEARCH_TTL));
+
 /**
  * `GET /search?q={keyword}&page={n}`
  *
- * Returns a {@link SearchResult} containing all model pages found on the
+ * Returns a {@link SearchResultSchema} containing all model pages found on the
  * requested Ollama search page. `page` defaults to `1`; invalid values are
  * clamped to `1`. `q` defaults to an empty string (all models).
  *
  * Responds with `500` when the scraper throws (e.g. Ollama down, HTML
  * structure changed).
  */
-app.get('/search', withCache(SEARCH_TTL, async (c) => {
+app.openapi(searchRoute, async (c) => {
   const page = Math.max(1, parseInt(c.req.query('page') ?? '1', 10) || 1);
   const keyword = c.req.query('q') ?? '';
 
   try {
     const pages = await scrapeSearchPage(page, keyword);
-    const result: SearchResult = { pages, page_range: page, keyword };
-    return c.json(result);
+    const result = { pages, page_range: page, keyword };
+    return c.json(result, 200);
   } catch (err) {
     if (c.env?.ALERT_WEBHOOK_URL) {
       const scrapeUrl = `${OLLAMA_BASE}/search?q=${encodeURIComponent(keyword)}&p=${page}`;
@@ -252,12 +328,14 @@ app.get('/search', withCache(SEARCH_TTL, async (c) => {
     }
     return c.json({ error: String(err) }, 500);
   }
-}));
+});
+
+app.use(modelRoute.getRoutingPath(), withCache(MODEL_TTL));
 
 /**
  * `GET /model?name={model-name}`
  *
- * Returns a {@link ModelTags} containing the model URL, model ID, full tag
+ * Returns a {@link ModelTagsSchema} containing the model URL, model ID, full tag
  * list, and `default_tag` (`null` when no `latest` tag exists).
  *
  * Accepted `name` formats:
@@ -268,7 +346,7 @@ app.get('/search', withCache(SEARCH_TTL, async (c) => {
  * Responds with `400` when `name` is missing or blank, `500` on scraper
  * error.
  */
-app.get('/model', withCache(MODEL_TTL, async (c) => {
+app.openapi(modelRoute, async (c) => {
   const name = c.req.query('name') ?? '';
   if (!name.trim()) {
     return c.json({ error: '`name` query parameter is required' }, 400);
@@ -291,8 +369,8 @@ app.get('/model', withCache(MODEL_TTL, async (c) => {
       model_id: path,
     };
 
-    const result: ModelTags = await scrapeModelPage(modelPage);
-    return c.json(result);
+    const result = await scrapeModelPage(modelPage);
+    return c.json(result, 200);
   } catch (err) {
     if (c.env?.ALERT_WEBHOOK_URL) {
       const scrapeUrl = `${OLLAMA_BASE}/${path}/tags`;
@@ -320,16 +398,16 @@ app.get('/model', withCache(MODEL_TTL, async (c) => {
     }
     return c.json({ error: String(err) }, 500);
   }
-}));
+});
 
 /**
  * `GET /health`
  *
- * Probes both scrapers with stable inputs and returns a {@link HealthStatus}
+ * Probes both scrapers with stable inputs and returns a {@link HealthStatusSchema}
  * object. Responds with `200` when all checks pass, `503` when any fail.
  * Never throws — all probe errors are captured in the response body.
  */
-app.get('/health', async (c) => {
+app.openapi(healthRoute, async (c) => {
   const status = await runHealthCheck();
   return c.json(status, status.ok ? 200 : 503);
 });
