@@ -1,3 +1,6 @@
+# Wrangler local dev secrets (never commit)
+.dev.vars
+
 # Logs
 logs
 *.log
