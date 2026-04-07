@@ -1,60 +1,25 @@
-import { z } from 'zod';
+import { z } from '@hono/zod-openapi';
 
-// ─── Shared ───────────────────────────────────────────────────────────────────
+// Re-export all schemas from their respective feature modules
+// for backward compatibility and centralized imports
 
-export const ModelPageSchema = z.object({
-  http_url: z.string(),
-  model_id: z.string(),
-});
+export { ModelQuerySchema, ModelTagsSchema } from './model';
+export { ModelPageSchema, SearchQuerySchema, SearchResultSchema } from './search';
+export { CheckResultSchema, HealthStatusSchema } from './health';
 
-// ─── /search ─────────────────────────────────────────────────────────────────
-
-export const SearchQuerySchema = z.object({
-  q: z.string().optional(),
-  page: z.string().optional(),
-});
-
-export const SearchResultSchema = z.object({
-  pages: z.array(ModelPageSchema),
-  page_range: z.union([
-    z.number(),
-    z.object({ from: z.number(), to: z.number() }),
-  ]),
-  keyword: z.string(),
-});
-
-// ─── /model ──────────────────────────────────────────────────────────────────
-
-export const ModelQuerySchema = z.object({
-  name: z.string(),
-});
-
-export const ModelTagsSchema = z.object({
-  page_url: z.string(),
-  id: z.string(),
-  tags: z.array(z.string()),
-  default_tag: z.string().nullable(),
-});
-
-// ─── /health ─────────────────────────────────────────────────────────────────
-
-export const CheckResultSchema = z.object({
-  ok: z.boolean(),
-  count: z.number().int().optional(),
-  error: z.string().optional(),
-});
-
-export const HealthStatusSchema = z.object({
-  ok: z.boolean(),
-  timestamp: z.string(),
-  checks: z.object({
-    search: CheckResultSchema,
-    model: CheckResultSchema,
-  }),
-});
-
-// ─── Error ───────────────────────────────────────────────────────────────────
-
+/**
+ * Error response schema for failed requests.
+ *
+ * @property error - Human-readable error message (required)
+ *                    사람이 읽을 수 있는 에러 메시지 (필수)
+ *
+ * @example
+ * ```json
+ * { "error": "scraper failure: selector 'a.group.w-full' may no longer match" }
+ * ```
+ */
 export const ErrorResponseSchema = z.object({
-  error: z.string(),
-});
+  error: z.string().openapi({
+    description: 'Human-readable error message (required) / 사람이 읽을 수 있는 에러 메시지 (필수)',
+  }),
+}).openapi('ErrorResponse');
