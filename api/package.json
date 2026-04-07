@@ -9,11 +9,10 @@
         "type-check": "tsc --noEmit",
         "test": "vitest run",
         "test:watch": "vitest",
-        "gen-openapi": "tsx scripts/gen-openapi.ts",
         "serve-for-ci": "tsx scripts/serve-for-ci.ts"
     },
     "dependencies": {
-        "@hono/zod-openapi": "1.2.4",
+        "@hono/zod-openapi": "^1.2.4",
         "es-toolkit": "^1.45.1",
         "hono": "^4.12.10",
         "node-html-parser": "^7.1.0",
