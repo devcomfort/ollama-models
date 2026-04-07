@@ -17,6 +17,9 @@ const mockModel = vi.mocked(scrapeModelPage);
 
 // Resets mock call counts, return values, and implementations before each test
 // so assertions like toHaveBeenCalledWith() reflect only the current test.
+//
+// 각 테스트 전에 mock 호출 횟수, 반환값, 구현을 초기화하여
+// toHaveBeenCalledWith() 등의 단언이 현재 테스트만 반영하도록 한다.
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -25,6 +28,10 @@ beforeEach(() => {
 // Covers: scraper is called with the correct page/keyword args, response is
 // wrapped in a SearchResult envelope, page defaults to 1, invalid page is
 // clamped to 1, and scraper errors are forwarded as 500 { error } responses.
+//
+// 검증 범위: 스크래퍼에 올바른 page/keyword 인수가 전달되는지, 응답이 SearchResult
+// 래퍼로 감싸지는지, page 기본값이 1인지, 잘못된 page가 1로 보정되는지,
+// 스크래퍼 에러가 500 { error } 응답으로 전달되는지.
 
 describe('GET /search', () => {
   it('returns a SearchResult with model pages', async () => {
@@ -95,6 +102,9 @@ describe('GET /search', () => {
 // ─── GET /model ───────────────────────────────────────────────────────────────
 // Covers: ModelTags shape for library and community models, null default_tag,
 // missing/blank/bare-name 400 validation errors, and scraper error → 500.
+//
+// 검증 범위: 라이브러리 및 커뮤니티 모델의 ModelTags 형태, null default_tag,
+// 누락/빈값/프로필 없는 이름에 대한 400 검증 에러, 스크래퍼 에러 → 500.
 
 describe('GET /model', () => {
   it('returns a ModelTags with tags and id for a library model', async () => {
@@ -171,6 +181,9 @@ describe('GET /model', () => {
 // ─── GET /health ──────────────────────────────────────────────────────────────
 // Covers: 200 ok:true when both probes pass, 503 ok:false for each individual
 // probe failure with error capture, and per-probe result count reflection.
+//
+// 검증 범위: 두 프로브 모두 통과 시 200 ok:true, 각 프로브 실패 시 에러 캡처와
+// 함께 503 ok:false, 프로브별 결과 수 반영.
 
 describe('GET /health', () => {
   it('returns 200 and ok:true when both scrapers succeed', async () => {
