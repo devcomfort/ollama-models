@@ -8,15 +8,24 @@ import type { ModelTags } from './types';
  * Fetches a model's `/tags` page and returns all available pull-ready
  * identifiers plus the canonical model page URL.
  *
+ * 모델의 `/tags` 페이지를 가져와 사용 가능한 모든 pull 식별자와 정규 모델 페이지 URL을 반환한다.
+ *
  * @param page - A {@link ModelPage} obtained from the search scraper. Its
  *   `http_url` is used as the base for the `/tags` request, and `model_id`
  *   is returned as-is in the result.
+ * @param page - 검색 스크래퍼에서 얻은 {@link ModelPage}. `http_url`은 `/tags` 요청의
+ *   기준 URL로 사용되며, `model_id`는 결과에 그대로 반환된다.
  * @returns A {@link ModelTags} with the model page URL, model ID,
  *   pull-ready tag identifiers, and the default tag (`null` when the model
  *   has no `latest` tag).
+ * @returns 모델 페이지 URL, 모델 ID, pull 가능 태그 식별자, 기본 태그(모델에
+ *   `latest` 태그가 없으면 `null`)를 포함한 {@link ModelTags}.
  * @throws {Error} When Ollama returns a non-2xx HTTP status.
+ * @throws {Error} Ollama가 2xx가 아닌 HTTP 상태를 반환할 때.
  * @throws {Error} When the CSS selector matches zero tag cards, indicating an
  *   HTML structure change on Ollama's side.
+ * @throws {Error} CSS 선택자가 태그 카드를 찾지 못해 Ollama 측의 HTML 구조 변경을
+ *   나타낼 때.
  * @example
  * ```typescript
  * const page: ModelPage = { http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' };
