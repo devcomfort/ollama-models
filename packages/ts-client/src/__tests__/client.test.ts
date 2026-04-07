@@ -3,6 +3,8 @@ import { OllamaModelsClient, DEFAULT_BASE_URL } from '../client';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
+// Creates a minimal fetch mock that returns `data` as JSON with the given HTTP
+// `status`. Used by all tests that need to control the simulated server response.
 function mockFetch(data: unknown, status = 200) {
   return vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
@@ -11,6 +13,7 @@ function mockFetch(data: unknown, status = 200) {
   });
 }
 
+// Restores the real global fetch after each test to prevent mock leakage.
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -34,15 +37,14 @@ const MOCK_MODEL: unknown = {
 };
 
 // ─── DEFAULT_BASE_URL ─────────────────────────────────────────────────────────
-
 describe('DEFAULT_BASE_URL', () => {
   it('points to the official hosted instance', () => {
     expect(DEFAULT_BASE_URL).toBe('https://ollama-models-api.devcomfort.workers.dev');
   });
 });
 
-// ─── constructor ──────────────────────────────────────────────────────────────
-
+// ─── constructor ──────────────────────────────────────────────────────────────// Covers: DEFAULT_BASE_URL used when no argument is given, trailing slash
+// stripped from a custom base URL so request paths are not double-slashed.
 describe('constructor', () => {
   it('uses DEFAULT_BASE_URL when called without arguments', async () => {
     const fetchMock = mockFetch(MOCK_SEARCH);
@@ -61,8 +63,8 @@ describe('constructor', () => {
   });
 });
 
-// ─── search() ────────────────────────────────────────────────────────────────
-
+// ─── search() ────────────────────────────────────────────────────────────────// Covers: happy path, q/page params, empty keyword omission, /search endpoint,
+// HTTP error, and two Zod schema mismatches (pages not array; model_id missing).
 describe('search()', () => {
   it('returns a parsed SearchResult', async () => {
     vi.stubGlobal('fetch', mockFetch(MOCK_SEARCH));
@@ -127,8 +129,8 @@ describe('search()', () => {
   });
 });
 
-// ─── getModel() ───────────────────────────────────────────────────────────────
-
+// ─── getModel() ───────────────────────────────────────────────────────────────// Covers: happy path, name param, /model endpoint, HTTP error, and two Zod
+// schema mismatches (tags not array; tag element not string).
 describe('getModel()', () => {
   it('returns a parsed ModelTags', async () => {
     vi.stubGlobal('fetch', mockFetch(MOCK_MODEL));
@@ -181,6 +183,69 @@ describe('getModel()', () => {
     );
     await expect(new OllamaModelsClient().getModel('qwen3')).rejects.toThrow(
       'ModelTags.tags[0]: expected string',
+    );
+  });
+});
+
+// ─── health() ────────────────────────────────────────────────────────────────
+// Covers: happy path with nested checks, /health endpoint, HTTP error, failed-
+// check error-field capture, and Zod schema mismatch (ok not boolean).
+
+const MOCK_HEALTH: unknown = {
+  ok: true,
+  timestamp: '2025-01-01T00:00:00.000Z',
+  checks: {
+    search: { ok: true, count: 20 },
+    model: { ok: true, count: 15 },
+  },
+};
+
+describe('health()', () => {
+  it('returns a parsed HealthStatus', async () => {
+    vi.stubGlobal('fetch', mockFetch(MOCK_HEALTH));
+    const result = await new OllamaModelsClient().health();
+    expect(result.ok).toBe(true);
+    expect(result.timestamp).toBe('2025-01-01T00:00:00.000Z');
+    expect(result.checks.search.ok).toBe(true);
+    expect(result.checks.search.count).toBe(20);
+    expect(result.checks.model.ok).toBe(true);
+  });
+
+  it('hits the /health endpoint', async () => {
+    const fetchMock = mockFetch(MOCK_HEALTH);
+    vi.stubGlobal('fetch', fetchMock);
+    await new OllamaModelsClient('https://api.test').health();
+    const url: string = fetchMock.mock.calls[0][0];
+    expect(url).toContain('/health');
+  });
+
+  it('throws with the HTTP status on a non-OK response', async () => {
+    vi.stubGlobal('fetch', mockFetch({}, 503));
+    await expect(new OllamaModelsClient().health()).rejects.toThrow('HTTP 503');
+  });
+
+  it('handles a failed check with error field', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch({
+        ok: false,
+        timestamp: '2025-01-01T00:00:00.000Z',
+        checks: {
+          search: { ok: false, error: 'timeout' },
+          model: { ok: true, count: 15 },
+        },
+      }),
+    );
+    const result = await new OllamaModelsClient().health();
+    expect(result.ok).toBe(false);
+    expect(result.checks.search.ok).toBe(false);
+    expect(result.checks.search.error).toBe('timeout');
+  });
+
+  it('throws when the response does not match the HealthStatus schema', async () => {
+    vi.stubGlobal('fetch', mockFetch({ ok: 'yes', timestamp: '2025-01-01T00:00:00.000Z', checks: {} }));
+    await expect(new OllamaModelsClient().health()).rejects.toThrow(
+      'HealthStatus.ok: expected boolean',
     );
   });
 });

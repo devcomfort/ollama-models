@@ -107,3 +107,40 @@ export interface ModelTags {
    */
   default_tag: string | null;
 }
+
+/** Result of a single scraper probe returned inside {@link HealthStatus}. */
+export interface CheckResult {
+  /** `true` when the probe returned at least one result without throwing. */
+  ok: boolean;
+  /** Number of results returned by the probe when the check passed. */
+  count?: number;
+  /** Stringified error message when the check failed. */
+  error?: string;
+}
+
+/**
+ * Response payload returned by the `GET /health` endpoint.
+ *
+ * @example
+ * ```typescript
+ * const status: HealthStatus = {
+ *   ok: true,
+ *   timestamp: '2025-01-01T00:00:00.000Z',
+ *   checks: {
+ *     search: { ok: true, count: 20 },
+ *     model: { ok: true, count: 15 },
+ *   },
+ * };
+ * ```
+ */
+export interface HealthStatus {
+  /** `true` only when every individual check passed. */
+  ok: boolean;
+  /** ISO 8601 timestamp of when the health check was run. */
+  timestamp: string;
+  /** Per-scraper probe results. */
+  checks: {
+    search: CheckResult;
+    model: CheckResult;
+  };
+}

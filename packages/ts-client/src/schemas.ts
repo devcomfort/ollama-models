@@ -1,5 +1,5 @@
 import { assert } from 'es-toolkit/util';
-import type { ModelTags, ModelPage, SearchResult } from './types';
+import type { ModelTags, ModelPage, SearchResult, CheckResult, HealthStatus } from './types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,4 +64,40 @@ export function assertModelTags(data: unknown): asserts data is ModelTags {
     data['default_tag'] === null || typeof data['default_tag'] === 'string',
     'ModelTags.default_tag: expected string or null',
   );
+}
+
+/**
+ * Asserts that `data` conforms to the {@link CheckResult} shape.
+ *
+ * @param data - Unknown value to validate.
+ * @param context - Label used in error messages (defaults to `"CheckResult"`).
+ * @throws When any field is missing or has the wrong type.
+ */
+export function assertCheckResult(
+  data: unknown,
+  context = 'CheckResult',
+): asserts data is CheckResult {
+  assert(isObject(data), `${context}: expected object`);
+  assert(typeof data['ok'] === 'boolean', `${context}.ok: expected boolean`);
+  if ('count' in data) {
+    assert(typeof data['count'] === 'number', `${context}.count: expected number`);
+  }
+  if ('error' in data) {
+    assert(typeof data['error'] === 'string', `${context}.error: expected string`);
+  }
+}
+
+/**
+ * Asserts that `data` conforms to the {@link HealthStatus} shape.
+ *
+ * @param data - Unknown value to validate.
+ * @throws When any field is missing or has the wrong type.
+ */
+export function assertHealthStatus(data: unknown): asserts data is HealthStatus {
+  assert(isObject(data), 'HealthStatus: expected object');
+  assert(typeof data['ok'] === 'boolean', 'HealthStatus.ok: expected boolean');
+  assert(typeof data['timestamp'] === 'string', 'HealthStatus.timestamp: expected string');
+  assert(isObject(data['checks']), 'HealthStatus.checks: expected object');
+  assertCheckResult(data['checks']['search'], 'HealthStatus.checks.search');
+  assertCheckResult(data['checks']['model'], 'HealthStatus.checks.model');
 }

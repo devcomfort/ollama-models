@@ -1,5 +1,5 @@
-import type { SearchResult, ModelTags } from './types';
-import { assertModelTags, assertSearchResult } from './schemas';
+import type { SearchResult, ModelTags, HealthStatus } from './types';
+import { assertModelTags, assertSearchResult, assertHealthStatus } from './schemas';
 
 /**
  * Base URL of the officially hosted ollama-models Workers API.
@@ -20,11 +20,11 @@ export const DEFAULT_BASE_URL = 'https://ollama-models-api.devcomfort.workers.de
  *
  * // Search for models
  * const { pages } = await client.search('qwen3');
- * console.log(pages[0].model); // 'qwen3'
+ * console.log(pages[0].http_url);
  *
  * // Get all available tags
- * const { model_list, default_model_id } = await client.getModel('qwen3');
- * console.log(default_model_id); // 'qwen3:latest'
+ * const { tags, default_tag } = await client.getModel('library/qwen3');
+ * console.log(default_tag); // 'qwen3:latest'
  * ```
  */
 export class OllamaModelsClient {
@@ -49,7 +49,7 @@ export class OllamaModelsClient {
    * @throws {Error} When the API returns a non-2xx HTTP status.
    * @example
    * ```typescript
-   * const { pages, page_id, keyword } = await client.search('qwen3', 1);
+   * const { pages, page_range, keyword } = await client.search('qwen3', 1);
    * const firstUrl = pages[0].http_url;
    * ```
    */
@@ -68,17 +68,16 @@ export class OllamaModelsClient {
   /**
    * Retrieve all available tags (weights) for a model.
    *
-   * @param name - Model identifier in any of the following formats:
-   *   - `"qwen3"` — short name (resolves to `library/qwen3`)
-   *   - `"library/qwen3"` — explicit library path
+   * @param name - Model identifier in `{profile}/{name}` format, e.g.:
+   *   - `"library/qwen3"` — official Ollama library model
    *   - `"RogerBen/qwen3.5-35b-opus-distill"` — community model
    *   - `"https://ollama.com/library/qwen3"` — full URL
    * @returns A {@link ModelTags} with all available weights.
-   *   `default_model_id` is `null` when the model has no `latest` tag.
+   *   `default_tag` is `null` when the model has no `latest` tag.
    * @throws {Error} When the API returns a non-2xx HTTP status.
    * @example
    * ```typescript
-   * const { model_list, default_model_id } = await client.getModel('qwen3');
+   * const { tags, default_tag } = await client.getModel('library/qwen3');
    * // Pull the default weight: 'qwen3:latest'
    * ```
    */
@@ -90,6 +89,26 @@ export class OllamaModelsClient {
     if (!res.ok) throw new Error(`Model fetch failed: HTTP ${res.status}`);
     const data: unknown = await res.json();
     assertModelTags(data);
+    return data;
+  }
+
+  /**
+   * Run a live health check against both scrapers.
+   *
+   * @returns A {@link HealthStatus} with per-scraper probe results and an
+   *   aggregate `ok` flag.
+   * @throws {Error} When the API returns a non-2xx HTTP status.
+   * @example
+   * ```typescript
+   * const { ok, checks } = await client.health();
+   * if (!ok) console.error('search error:', checks.search.error);
+   * ```
+   */
+  async health(): Promise<HealthStatus> {
+    const res = await fetch(`${this.baseUrl}/health`);
+    if (!res.ok) throw new Error(`Health check failed: HTTP ${res.status}`);
+    const data: unknown = await res.json();
+    assertHealthStatus(data);
     return data;
   }
 }
