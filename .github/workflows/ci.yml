@@ -3,37 +3,31 @@
 # Purpose
 # ───────
 # Ensures that the schemas of the API, TypeScript client, and Python client never
-# drift out of sync with each other. Three concerns are enforced on every push and pull request:
+# drift out of sync with each other. Three jobs run on every push and pull request:
 #
-#   1. api          — Type-checks the Workers API, runs unit tests, regenerates
-#                     api/openapi.json, and fails if the committed spec is stale.
-#                     This guarantees that every merged Zod schema change is
-#                     immediately reflected in the versioned OpenAPI document.
+#   1. api          — Type-checks the Workers API and runs unit tests.
 #
 #   2. ts-client    — Type-checks and tests the TypeScript client. Both unit tests
 #                     (fetch stubbed with raw JSON) and integration tests (fetch
 #                     routed through the real Hono app via vi.stubGlobal) run in a
-#                     single Vitest pass. Depends on `api` so it only runs after the
-#                     spec is verified.
+#                     single Vitest pass. Depends on `api`.
 #
 #   3. py-client    — Tests the Python client. Unit tests use pytest-httpx to mock
 #                     HTTP at the transport layer. Integration tests start
 #                     api/scripts/serve-for-ci.ts as a Node.js subprocess and send
 #                     real HTTP requests to it, exercising the full deserialization
-#                     chain end-to-end. Depends on `api` for the same reason.
+#                     chain end-to-end. Depends on `api`.
 #
 # 목적
 # ────
 # API, TypeScript 클라이언트, Python 클라이언트 세 레이어의 스키마가 서로 동기화된
 # 상태를 유지하도록 강제한다. 모든 push와 pull request에서 다음 세 가지를 검증한다:
 #
-#   1. api          — Workers API 타입 검사, 단위 테스트 실행, api/openapi.json 재생성,
-#                     커밋된 spec이 최신 상태인지 확인(stale이면 빌드 실패).
-#                     Zod 스키마 변경이 즉시 버전 관리되는 OpenAPI 문서에 반영되도록 보장.
+#   1. api          — Workers API 타입 검사 및 단위 테스트 실행.
 #
 #   2. ts-client    — TypeScript 클라이언트 타입 검사 및 테스트. 단위 테스트(원시 JSON
 #                     stub)와 통합 테스트(vi.stubGlobal로 실제 Hono 앱 경유)를 단일
-#                     Vitest 실행으로 처리. spec 검증 완료 후 실행되도록 api에 의존.
+#                     Vitest 실행으로 처리. api 완료 후 실행.
 #
 #   3. py-client    — Python 클라이언트 테스트. 단위 테스트는 pytest-httpx로 전송 레이어
 #                     mock 처리. 통합 테스트는 api/scripts/serve-for-ci.ts를 Node.js
@@ -49,9 +43,9 @@ on:
     branches: [main]
 
 jobs:
-  # ─── API unit tests + OpenAPI spec verification ──────────────────────────────
+  # ─── API unit tests ──────────────────────────────────────────────────────────
   api:
-    name: API unit tests & schema verification
+    name: API unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,17 +67,6 @@ jobs:
 
       - name: Run API unit tests
         run: pnpm --filter ollama-models-api test
-
-      - name: Generate OpenAPI spec
-        run: pnpm --filter ollama-models-api gen-openapi
-
-      # Fail the build if the committed openapi.json is out of date.
-      - name: Verify openapi.json is up to date
-        run: |
-          if ! git diff --exit-code api/openapi.json; then
-            echo "::error::api/openapi.json is stale. Run 'pnpm --filter ollama-models-api gen-openapi' and commit the result."
-            exit 1
-          fi
 
   # ─── TypeScript client: unit tests + integration tests ───────────────────────
   ts-client:

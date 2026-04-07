@@ -6,6 +6,7 @@
         "dev": "pnpm --filter ollama-models-api dev",
         "deploy": "pnpm --filter ollama-models-api deploy",
         "build": "pnpm --filter @devcomfort/ollama-models build",
+        "gen-openapi": "pnpm --filter ollama-models-api gen-openapi",
         "type-check": "pnpm -r type-check",
         "test": "pnpm -r run test && pnpm py:test",
         "test:api": "pnpm --filter ollama-models-api test",

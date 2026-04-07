@@ -11,7 +11,7 @@ importers:
   api:
     dependencies:
       '@hono/zod-openapi':
-        specifier: 1.2.4
+        specifier: ^1.2.4
         version: 1.2.4(hono@4.12.10)(zod@4.3.6)
       es-toolkit:
         specifier: ^1.45.1
