@@ -9,6 +9,7 @@
         "type-check": "tsc --noEmit",
         "test": "vitest run",
         "test:watch": "vitest",
+        "gen-openapi": "tsx scripts/gen-openapi.ts",
         "serve-for-ci": "tsx scripts/serve-for-ci.ts"
     },
     "dependencies": {
