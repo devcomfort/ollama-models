@@ -3,8 +3,6 @@ import { cors } from 'hono/cors';
 import { scrapeSearchPage } from './search/scraper';
 import { scrapeModelPage } from './model/scraper';
 import { OLLAMA_BASE } from './constants';
-import type { SearchResult, ModelPage } from './search/types';
-import type { ModelTags } from './model/types';
 import {
   SearchQuerySchema,
   SearchResultSchema,
@@ -13,19 +11,34 @@ import {
   HealthStatusSchema,
   ErrorResponseSchema,
 } from './schemas';
+import { runHealthCheck, buildHealthAlertMessage, PROBE_MODEL, PROBE_KEYWORD } from './health';
+import type { SearchResult, ModelPage } from './search/types';
+import type { ModelTags } from './model/types';
+import type { HealthStatus } from './health/types';
 
 type Bindings = {
-  /** Webhook URL to POST alert notifications to when a scheduled health check fails. */
+  /**
+   * Webhook URL to POST alert notifications to when a scheduled health check fails.
+   *
+   * 예약된 헬스 체크가 실패할 때 알림을 POST할 웹훅 URL.
+   */
   ALERT_WEBHOOK_URL?: string;
 };
 
 /**
  * Sends an alert to the webhook when `ALERT_WEBHOOK_URL` is configured.
+ *
+ * `ALERT_WEBHOOK_URL`이 설정된 경우 웹훅으로 알림을 전송한다.
+ *
  * Send failures are silently ignored — alert failures must not interfere with
  * the original error handling path.
  *
+ * 전송 실패는 조용히 무시된다 — 알림 실패가 원래의 에러 처리 경로를 방해해서는 안 된다.
+ *
  * @param webhookUrl - URL to POST to.
+ * @param webhookUrl - POST 요청을 보낼 URL.
  * @param message - The `text` field of the webhook payload.
+ * @param message - 웹훅 페이로드의 `text` 필드.
  */
 async function sendAlert(webhookUrl: string, message: string): Promise<void> {
   try {
@@ -39,128 +52,73 @@ async function sendAlert(webhookUrl: string, message: string): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Health check helpers
-// ---------------------------------------------------------------------------
+// ─── OpenAPI route definitions ──────────────────────────────────────────────
 
-/** Well-known probe target with a reliably large number of tags. */
-const PROBE_MODEL: ModelPage = {
-  http_url: `${OLLAMA_BASE}/library/qwen3`,
-  model_id: 'library/qwen3',
-};
-const PROBE_KEYWORD = 'qwen';
+const searchRoute = createRoute({
+  method: 'get',
+  path: '/search',
+  summary: 'Search Ollama models',
+  description: 'Returns a paginated list of model pages matching the given keyword.',
+  tags: ['Search'],
+  request: { query: SearchQuerySchema },
+  responses: {
+    200: {
+      description: 'Matching model pages',
+      content: { 'application/json': { schema: SearchResultSchema } },
+    },
+    500: {
+      description: 'Scraper error',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+    },
+  },
+});
 
-/** Result of a single scraper probe run during a health check. */
-interface CheckResult {
-  /** `true` when the probe returned at least one result without throwing. */
-  ok: boolean;
-  /** Number of results returned by the probe when the check passed. */
-  count?: number;
-  /** Stringified error message when the check failed. */
-  error?: string;
-}
+const modelRoute = createRoute({
+  method: 'get',
+  path: '/model',
+  summary: 'Get model tags',
+  description: 'Returns all available tags for a specific Ollama model.',
+  tags: ['Model'],
+  request: { query: ModelQuerySchema },
+  responses: {
+    200: {
+      description: 'Model tags',
+      content: { 'application/json': { schema: ModelTagsSchema } },
+    },
+    400: {
+      description: 'Missing or invalid `name` parameter',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+    },
+    500: {
+      description: 'Scraper error',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+    },
+  },
+});
 
-/** Response shape of the `GET /health` endpoint. */
-interface HealthStatus {
-  /** `true` only when every individual check passed. */
-  ok: boolean;
-  /** ISO 8601 timestamp of when the health check was run. */
-  timestamp: string;
-  /** Per-scraper probe results. */
-  checks: {
-    search: CheckResult;
-    model: CheckResult;
-  };
-}
+const healthRoute = createRoute({
+  method: 'get',
+  path: '/health',
+  summary: 'Health check',
+  description: 'Runs live probes against both scrapers and returns their status.',
+  tags: ['Health'],
+  responses: {
+    200: {
+      description: 'All probes passed',
+      content: { 'application/json': { schema: HealthStatusSchema } },
+    },
+    503: {
+      description: 'One or more probes failed',
+      content: { 'application/json': { schema: HealthStatusSchema } },
+    },
+  },
+});
 
-/**
- * Runs live probes against both scrapers with stable inputs and returns a
- * structured result.
- *
- * Neither probe throws — errors are captured in the returned
- * `CheckResult.error` field so the `/health` handler can always respond.
- *
- * @returns A {@link HealthStatus} whose `ok` is `true` only when both the
- *   search and model scrapers succeed.
- */
-async function runHealthCheck(): Promise<HealthStatus> {
-  const timestamp = new Date().toISOString();
-  let search: CheckResult = { ok: false };
-  let model: CheckResult = { ok: false };
-
-  try {
-    const pages = await scrapeSearchPage(1, PROBE_KEYWORD);
-    search = { ok: pages.length > 0, count: pages.length };
-  } catch (err) {
-    search = { ok: false, error: String(err) };
-  }
-
-  try {
-    const { tags } = await scrapeModelPage(PROBE_MODEL);
-    model = { ok: tags.length > 0, count: tags.length };
-  } catch (err) {
-    model = { ok: false, error: String(err) };
-  }
-
-  return { ok: search.ok && model.ok, timestamp, checks: { search, model } };
-}
-
-/**
- * Builds a structured Slack mrkdwn alert message for a failed health check.
- * Includes probe details, error messages, passing checks, and actionable links.
- */
-function buildHealthAlertMessage(status: HealthStatus): string {
-  const entries = Object.entries(status.checks) as [string, CheckResult][];
-
-  const lines: string[] = [
-    `🚨 *[ollama-models] Health Check Failed*`,
-    `*Time:* ${status.timestamp}`,
-    ``,
-  ];
-
-  for (const [name, result] of entries) {
-    const label = name === 'search' ? 'Model list search' : 'Model tag lookup';
-    if (result.ok) {
-      if (name === 'search') {
-        lines.push(`✅ *${label}* — searched for \`"${PROBE_KEYWORD}"\`, ${result.count} model(s) found`);
-      } else {
-        lines.push(`✅ *${label}* — fetched tags for \`${PROBE_MODEL.model_id}\`, ${result.count} tag(s) found`);
-      }
-    } else {
-      if (name === 'search') {
-        const url = `${OLLAMA_BASE}/search?q=${encodeURIComponent(PROBE_KEYWORD)}`;
-        lines.push(`❌ *${label}* — searched for \`"${PROBE_KEYWORD}"\` on page 1`);
-        lines.push(`  Probe URL: <${url}|${url}>`);
-      } else {
-        const url = `${PROBE_MODEL.http_url}/tags`;
-        lines.push(`❌ *${label}* — fetched tags for \`${PROBE_MODEL.model_id}\``);
-        lines.push(`  Probe URL: <${url}|${url}>`);
-      }
-      lines.push(`  Error: \`${result.error ?? 'returned 0 results'}\``);
-    }
-  }
-
-  lines.push(``);
-  lines.push(`─────────────────────────────`);
-  lines.push(`📍 *Where to check:*`);
-  lines.push(``);
-  lines.push(`_Search (model list)_`);
-  lines.push(`• Ollama search page: <${OLLAMA_BASE}/search?q=${encodeURIComponent(PROBE_KEYWORD)}|${OLLAMA_BASE}/search?q=${PROBE_KEYWORD}>`);
-  lines.push(`• Scraper code: \`api/src/search/scraper.ts\` → \`scrapeSearchPage()\``);
-  lines.push(``);
-  lines.push(`_Model (tag lookup)_`);
-  lines.push(`• Ollama model tags page: <${PROBE_MODEL.http_url}/tags|${PROBE_MODEL.http_url}/tags>`);
-  lines.push(`• Scraper code: \`api/src/model/scraper.ts\` → \`scrapeModelPage()\``);
-  lines.push(``);
-  lines.push(`_General_`);
-  lines.push(`• Health check logic: \`api/src/index.ts\` → \`runHealthCheck()\``);
-  lines.push(`• Cloudflare logs: <https://dash.cloudflare.com/|Cloudflare dashboard> → Workers & Pages → \`ollama-models-api\` → Logs`);
-
-  return lines.join('\n');
-}
+// ─── App ─────────────────────────────────────────────────────────────────────
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>({
-  defaultHook: (result, c) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultHook: (result, c: any) => {
     if (!result.success) {
       return c.json({ error: result.error.message }, 400);
     }
@@ -180,19 +138,29 @@ app.use('*', cors());
 /**
  * Wraps a route handler with a Cloudflare Cache API lookup/store.
  *
+ * 라우트 핸들러를 Cloudflare Cache API 조회/저장으로 래핑한다.
+ *
  * Returns the cached {@link Response} immediately on a cache hit. On a miss,
  * executes the handler, stores the JSON response at the request URL for the
  * given TTL, and returns the fresh response.
  *
+ * 캐시 적중 시 즉시 캐시된 {@link Response}를 반환한다. 적중하지 않으면 핸들러를
+ * 실행하고, 요청 URL에 JSON 응답을 주어진 TTL 동안 저장한 뒤 새 응답을 반환한다.
+ *
  * `/health` is intentionally excluded from caching because it must always
  * reflect live scraper state.
  *
+ * `/health`는 항상 라이브 스크래퍼 상태를 반영해야 하므로 의도적으로 캐싱에서 제외된다.
+ *
  * @param ttl - Cache lifetime in seconds.
+ * @param ttl - 캐시 수명(초).
  * @param handler - The original route handler to wrap.
+ * @param handler - 래핑할 원본 라우트 핸들러.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function withCache(ttl: number, handler: (c: any) => Promise<Response>): (c: any) => Promise<Response> {
-  return async (c) => {
+function withCache(ttl: number, handler: (c: any) => Promise<Response>): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return async (c: any) => {
     const cache = caches.default;
     const cacheKey = new Request(c.req.url);
 
@@ -213,88 +181,23 @@ function withCache(ttl: number, handler: (c: any) => Promise<Response>): (c: any
   };
 }
 
-/** 1-minute TTL so new models surface in search results quickly. */
+/**
+ * 1-minute TTL so new models surface in search results quickly.
+ *
+ * 새 모델이 검색 결과에 빠르게 반영되도록 하는 1분 TTL.
+ */
 const SEARCH_TTL = 60;
-/** 5-minute TTL so tag changes are visible within 5 minutes. */
+/**
+ * 5-minute TTL so tag changes are visible within 5 minutes.
+ *
+ * 태그 변경이 5분 이내에 반영되도록 하는 5분 TTL.
+ */
 const MODEL_TTL = 300;
-
-// ---------------------------------------------------------------------------
-// Route definitions (OpenAPI metadata + Zod request/response schemas)
-// ---------------------------------------------------------------------------
-
-const searchRoute = createRoute({
-  method: 'get',
-  path: '/search',
-  tags: ['Search'],
-  summary: 'Search Ollama models by keyword',
-  description:
-    'Returns all model pages found on the requested Ollama search results page. ' +
-    '`page` defaults to `1`; invalid values are clamped to `1`. ' +
-    '`q` defaults to an empty string (all models). ' +
-    'Responds with `500` when the scraper throws (e.g. Ollama down, HTML structure changed).',
-  request: { query: SearchQuerySchema },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: SearchResultSchema } },
-      description: 'Model pages found on the requested search page.',
-    },
-    500: {
-      content: { 'application/json': { schema: ErrorResponseSchema } },
-      description: 'Scraper error — Ollama may be down or its HTML structure changed.',
-    },
-  },
-});
-
-const modelRoute = createRoute({
-  method: 'get',
-  path: '/model',
-  tags: ['Model'],
-  summary: 'Retrieve all available tags for a model',
-  description:
-    'Returns the model URL, model ID, full tag list, and `default_tag` (`null` when no `latest` tag exists). ' +
-    'Accepted `name` formats: `library/qwen3`, `RogerBen/custom-model`, or a full `https://ollama.com/…` URL.',
-  request: { query: ModelQuerySchema },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: ModelTagsSchema } },
-      description: 'Model tags and metadata.',
-    },
-    400: {
-      content: { 'application/json': { schema: ErrorResponseSchema } },
-      description: 'Missing or invalid `name` parameter.',
-    },
-    500: {
-      content: { 'application/json': { schema: ErrorResponseSchema } },
-      description: 'Scraper error.',
-    },
-  },
-});
-
-const healthRoute = createRoute({
-  method: 'get',
-  path: '/health',
-  tags: ['Health'],
-  summary: 'Run a live health check against both scrapers',
-  description:
-    'Probes both scrapers with stable inputs and returns a structured result. ' +
-    'Responds with `200` when all checks pass, `503` when any fail. Never throws.',
-  responses: {
-    200: {
-      content: { 'application/json': { schema: HealthStatusSchema } },
-      description: 'All scraper checks passed.',
-    },
-    503: {
-      content: { 'application/json': { schema: HealthStatusSchema } },
-      description: 'One or more scraper checks failed.',
-    },
-  },
-});
 
 // ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 app.openapi(searchRoute, withCache(SEARCH_TTL, async (c) => {
   const { q, page: pageStr } = c.req.valid('query');
   const page = Math.max(1, parseInt(pageStr ?? '1', 10) || 1);
@@ -331,10 +234,8 @@ app.openapi(searchRoute, withCache(SEARCH_TTL, async (c) => {
     }
     return c.json({ error: String(err) }, 500);
   }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-}) as any);
+}));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 app.openapi(modelRoute, withCache(MODEL_TTL, async (c) => {
   const { name } = c.req.valid('query');
   if (!name.trim()) {
@@ -387,25 +288,25 @@ app.openapi(modelRoute, withCache(MODEL_TTL, async (c) => {
     }
     return c.json({ error: String(err) }, 500);
   }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-}) as any);
+}));
 
 app.openapi(healthRoute, async (c) => {
   const status = await runHealthCheck();
   return c.json(status, status.ok ? 200 : 503);
 });
 
-// Serves the generated OpenAPI 3.0 spec as JSON.
+// ─── OpenAPI spec endpoint ───────────────────────────────────────────────────
+
 app.doc('/openapi.json', {
   openapi: '3.0.0',
   info: {
-    title: 'ollama-models Workers API',
+    title: 'Ollama Models API',
     version: '0.1.0',
-    description:
-      'Scrapes ollama.com to expose model search and tag listing as a JSON HTTP API. ' +
-      'Hosted on Cloudflare Workers.',
+    description: 'JSON HTTP API for searching Ollama models and listing their tags, backed by live scraping of ollama.com.',
   },
-  servers: [{ url: 'https://ollama-models-api.devcomfort.workers.dev' }],
+  servers: [
+    { url: 'https://ollama-models-api.devcomfort.workers.dev', description: 'Production (Cloudflare Workers)' },
+  ],
 });
 
 // ---------------------------------------------------------------------------
@@ -421,9 +322,15 @@ export default {
   /**
    * Cloudflare Cron Trigger handler — runs every hour (see wrangler.toml).
    *
+   * Cloudflare Cron Trigger 핸들러 — 매시간 실행됨(wrangler.toml 참조).
+   *
    * On failure, POSTs a JSON alert to the `ALERT_WEBHOOK_URL` secret if set.
    * The payload uses a Slack-compatible `text` field and works out of the box
    * with Slack, Discord (Slack-compatible), and most generic webhook services.
+   *
+   * 실패 시 `ALERT_WEBHOOK_URL` 시크릿이 설정되어 있으면 JSON 알림을 POST한다.
+   * 페이로드는 Slack 호환 `text` 필드를 사용하며, Slack, Discord(Slack 호환),
+   * 대부분의 일반 웹훅 서비스에서 즉시 사용할 수 있다.
    */
   async scheduled(
     _event: ScheduledEvent,
