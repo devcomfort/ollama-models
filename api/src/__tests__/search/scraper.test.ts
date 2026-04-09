@@ -45,28 +45,24 @@ afterEach(() => {
 // 인티그레이션 스위트보다 먼저 실패한다.
 
 describe('scrapeSearchPage', () => {
-  // === shared fixtures ===
-  // Fetch real HTML from ollama.com once, cache in memory, reuse across tests.
-  // SEARCH_HTML: normal results page (keyword: TEST_MODEL)
-  // NO_RESULTS_HTML: empty results page (keyword: NO_RESULTS_MODEL — intentionally fake)
-  // All tests run against these cached HTML copies without hitting overtime.
+  // === shared fixture URLs ===
+  // Fixture keys are fixed URLs to cache real HTML from ollama.com once and reuse.
+  // htmlCache populated in beforeAll; tests access it directly by key.
   //
-  // ollama.com에서 실제 HTML을 한 번 가져와 메모리 캐시에 저장한 후 모든 테스트에서 재사용.
-  // SEARCH_HTML: 정상 결과 페이지 (키워드: TEST_MODEL)
-  // NO_RESULTS_HTML: 빈 결과 페이지 (키워드: NO_RESULTS_MODEL — 의도적으로 가짜)
-  // 모든 테스트가 캐시된 HTML을 사용하므로 네트워크 요청 없이 실행.
-  let SEARCH_HTML: string;
-  let NO_RESULTS_HTML: string;
+  // 고정 URL을 key로 사용해서 메모리 캐시에 저장하고 모든 테스트에서 재사용.
+  // beforeAll에서 htmlCache를 채우고, 테스트에서 key로 직접 접근.
+  const SEARCH_URL = `${OLLAMA_BASE}/search?page=1&q=${TEST_MODEL}`;
+  const NO_RESULTS_URL = `${OLLAMA_BASE}/search?page=1&q=${NO_RESULTS_MODEL}`;
 
   beforeAll(async () => {
-    SEARCH_HTML = await fetchCached(`${OLLAMA_BASE}/search?page=1&q=${TEST_MODEL}`);
-    NO_RESULTS_HTML = await fetchCached(`${OLLAMA_BASE}/search?page=1&q=${NO_RESULTS_MODEL}`);
+    await fetchCached(SEARCH_URL);
+    await fetchCached(NO_RESULTS_URL);
   });
 
   it('returns at least one model URL', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => SEARCH_HTML,
+      text: async () => htmlCache.get(SEARCH_URL)!,
     }));
     const pages = await scrapeSearchPage(1, TEST_MODEL);
     expect(pages.length).toBeGreaterThan(0);
@@ -75,7 +71,7 @@ describe('scrapeSearchPage', () => {
   it('every result has a well-formed http_url', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => SEARCH_HTML,
+      text: async () => htmlCache.get(SEARCH_URL)!,
     }));
     const pages = await scrapeSearchPage(1, TEST_MODEL);
     for (const p of pages) {
@@ -86,7 +82,7 @@ describe('scrapeSearchPage', () => {
   it('every result has a valid model_id', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => SEARCH_HTML,
+      text: async () => htmlCache.get(SEARCH_URL)!,
     }));
     const pages = await scrapeSearchPage(1, TEST_MODEL);
     for (const p of pages) {
@@ -97,7 +93,7 @@ describe('scrapeSearchPage', () => {
   it('returns no duplicate http_urls', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => SEARCH_HTML,
+      text: async () => htmlCache.get(SEARCH_URL)!,
     }));
     const pages = await scrapeSearchPage(1, TEST_MODEL);
     const urls = pages.map((p) => p.http_url);
@@ -107,7 +103,7 @@ describe('scrapeSearchPage', () => {
   it('result URLs are model paths, not navigation links', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => SEARCH_HTML,
+      text: async () => htmlCache.get(SEARCH_URL)!,
     }));
     const pages = await scrapeSearchPage(1, TEST_MODEL);
     for (const p of pages) {
@@ -118,7 +114,7 @@ describe('scrapeSearchPage', () => {
   it('passes page number and keyword to the Ollama search URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => SEARCH_HTML,
+      text: async () => htmlCache.get(SEARCH_URL)!,
     });
     vi.stubGlobal('fetch', fetchMock);
     await scrapeSearchPage(3, TEST_MODEL);
@@ -130,7 +126,7 @@ describe('scrapeSearchPage', () => {
   it('does not append q param when keyword is empty', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => SEARCH_HTML,
+      text: async () => htmlCache.get(SEARCH_URL)!,
     });
     vi.stubGlobal('fetch', fetchMock);
     await scrapeSearchPage(1, '');
@@ -141,7 +137,7 @@ describe('scrapeSearchPage', () => {
   it('throws a descriptive error when the selector matches no cards', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      text: async () => NO_RESULTS_HTML,
+      text: async () => htmlCache.get(NO_RESULTS_URL)!,
     }));
     await expect(scrapeSearchPage(1, 'zzz-no-match')).rejects.toThrow(
       "selector 'a.group.w-full' may no longer match",
