@@ -1,13 +1,13 @@
 import { assert } from 'es-toolkit/util';
 import type { ModelTags, ModelPage, SearchResult, CheckResult, HealthStatus } from './types';
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
+// === helpers ===
 
 function isObject(val: unknown): val is Record<string, unknown> {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
-// ─── per-type assertions ──────────────────────────────────────────────────────
+// === per-type assertions ===
 
 /**
  * Asserts that `data` conforms to the {@link ModelPage} shape.

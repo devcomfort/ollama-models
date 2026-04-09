@@ -17,7 +17,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-// ─── fixtures ─────────────────────────────────────────────────────────────────
+// === fixtures ===
 // Shared ModelPage arrays used across multiple tests. PAGE_2 contains
 // 'library/qwen3' which also appears in PAGE_1, making it suitable for
 // cross-page deduplication assertions.
@@ -37,7 +37,7 @@ const PAGE_3 = [
   { http_url: 'https://ollama.com/library/gemma3', model_id: 'library/gemma3' },
 ];
 
-// ─── single page ────────────────────────────────────────────────────────────────
+// === single page ===
 // search() called with a plain page number: verifies SearchResult shape,
 // correct scraper call args, and the default-to-page-1 behaviour.
 //
@@ -67,7 +67,7 @@ describe('search() — single page', () => {
   });
 });
 
-// ─── page range ────────────────────────────────────────────────────────────────
+// === page range ===
 // search() called with a { from, to } range object: verifies parallel fetch
 // of all pages, cross-page deduplication, page_range storage, single-element
 // range edge case, partial results on page failure, and ascending order.
@@ -146,7 +146,7 @@ describe('search() — page range', () => {
   });
 });
 
-// ─── maxRetries ───────────────────────────────────────────────────────────────
+// === maxRetries ===
 // search() called with a maxRetries argument: verifies retry-on-failure,
 // drop after retry exhaustion, and independent per-page retry counters.
 //

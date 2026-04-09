@@ -36,7 +36,7 @@ import {
 } from '../src/schemas.ts';
 import { OLLAMA_BASE } from '../src/constants.ts';
 
-// ─── Mock fixtures ────────────────────────────────────────────────────────────
+// === Mock fixtures ===
 
 const MOCK_SEARCH_PAGES = [
   { http_url: `${OLLAMA_BASE}/library/qwen3`, model_id: 'library/qwen3' },
@@ -50,7 +50,7 @@ const MOCK_MODEL_TAGS = {
   default_tag: 'qwen3:latest',
 };
 
-// ─── Routes (same Zod schemas as production) ─────────────────────────────────
+// === Routes (same Zod schemas as production) ===
 
 const searchRoute = createRoute({
   method: 'get',
@@ -82,7 +82,7 @@ const healthRoute = createRoute({
   },
 });
 
-// ─── App ─────────────────────────────────────────────────────────────────────
+// === App ===
 
 const app = new OpenAPIHono();
 app.use('*', cors());
@@ -117,7 +117,7 @@ app.openapi(healthRoute, ((c: any) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }) as any);
 
-// ─── Start ────────────────────────────────────────────────────────────────────
+// === Start ===
 
 const PORT = Number(process.env['PORT'] ?? 8787);
 serve({ fetch: app.fetch, port: PORT }, () => {

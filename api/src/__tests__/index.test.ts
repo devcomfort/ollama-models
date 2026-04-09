@@ -24,7 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// ─── GET /search ──────────────────────────────────────────────────────────────
+// === GET /search ===
 // Covers: scraper is called with the correct page/keyword args, response is
 // wrapped in a SearchResult envelope, page defaults to 1, invalid page is
 // clamped to 1, and scraper errors are forwarded as 500 { error } responses.
@@ -99,7 +99,7 @@ describe('GET /search', () => {
   });
 });
 
-// ─── GET /model ───────────────────────────────────────────────────────────────
+// === GET /model ===
 // Covers: ModelTags shape for library and community models, null default_tag,
 // missing/blank/bare-name 400 validation errors, and scraper error → 500.
 //
@@ -178,7 +178,7 @@ describe('GET /model', () => {
   });
 });
 
-// ─── GET /health ──────────────────────────────────────────────────────────────
+// === GET /health ===
 // Covers: 200 ok:true when both probes pass, 503 ok:false for each individual
 // probe failure with error capture, and per-probe result count reflection.
 //

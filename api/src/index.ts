@@ -52,7 +52,7 @@ async function sendAlert(webhookUrl: string, message: string): Promise<void> {
   }
 }
 
-// ─── OpenAPI route definitions ──────────────────────────────────────────────
+// === OpenAPI route definitions ===
 
 const searchRoute = createRoute({
   method: 'get',
@@ -114,7 +114,7 @@ const healthRoute = createRoute({
   },
 });
 
-// ─── App ─────────────────────────────────────────────────────────────────────
+// === App ===
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -295,7 +295,7 @@ app.openapi(healthRoute, async (c) => {
   return c.json(status, status.ok ? 200 : 503);
 });
 
-// ─── OpenAPI spec endpoint ───────────────────────────────────────────────────
+// === OpenAPI spec endpoint ===
 
 app.doc('/openapi.json', {
   openapi: '3.0.0',

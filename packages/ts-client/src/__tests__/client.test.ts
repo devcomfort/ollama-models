@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { OllamaModelsClient, DEFAULT_BASE_URL } from '../client';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// === helpers ===
 
 // Creates a minimal fetch mock that returns `data` as JSON with the given HTTP
 // `status`. Used by all tests that need to control the simulated server response.
@@ -18,7 +18,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// ─── fixtures ─────────────────────────────────────────────────────────────────
+// === fixtures ===
 
 const MOCK_SEARCH: unknown = {
   pages: [
@@ -36,14 +36,15 @@ const MOCK_MODEL: unknown = {
   default_tag: 'qwen3:latest',
 };
 
-// ─── DEFAULT_BASE_URL ─────────────────────────────────────────────────────────
+// === DEFAULT_BASE_URL ===
 describe('DEFAULT_BASE_URL', () => {
   it('points to the official hosted instance', () => {
     expect(DEFAULT_BASE_URL).toBe('https://ollama-models-api.devcomfort.workers.dev');
   });
 });
 
-// ─── constructor ──────────────────────────────────────────────────────────────// Covers: DEFAULT_BASE_URL used when no argument is given, trailing slash
+// === constructor ===
+// Covers: DEFAULT_BASE_URL used when no argument is given, trailing slash
 // stripped from a custom base URL so request paths are not double-slashed.
 describe('constructor', () => {
   it('uses DEFAULT_BASE_URL when called without arguments', async () => {
@@ -63,7 +64,8 @@ describe('constructor', () => {
   });
 });
 
-// ─── search() ────────────────────────────────────────────────────────────────// Covers: happy path, q/page params, empty keyword omission, /search endpoint,
+// === search() ===
+// Covers: happy path, q/page params, empty keyword omission, /search endpoint,
 // HTTP error, and two Zod schema mismatches (pages not array; model_id missing).
 describe('search()', () => {
   it('returns a parsed SearchResult', async () => {
@@ -129,7 +131,8 @@ describe('search()', () => {
   });
 });
 
-// ─── getModel() ───────────────────────────────────────────────────────────────// Covers: happy path, name param, /model endpoint, HTTP error, and two Zod
+// === getModel() ===
+// Covers: happy path, name param, /model endpoint, HTTP error, and two Zod
 // schema mismatches (tags not array; tag element not string).
 describe('getModel()', () => {
   it('returns a parsed ModelTags', async () => {

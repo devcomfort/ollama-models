@@ -55,7 +55,7 @@ afterEach(() => {
 // because every fetch call is intercepted and routed through app.request().
 const client = new OllamaModelsClient('http://localhost');
 
-// ─── search ───────────────────────────────────────────────────────────────────
+// === search ===
 // Exercises client.search() through the full chain: scraper mock → Hono route
 // handler → JSON serialization → client Zod deserialization. Covers happy path,
 // query param forwarding, and scraper error → 500 → client exception.
@@ -88,7 +88,7 @@ describe('client.search() against live Hono app', () => {
   });
 });
 
-// ─── getModel ───────────────────────────────────────────────────────────────────
+// === getModel ===
 // Exercises client.getModel() through the full chain. Covers happy path with
 // all ModelTags fields, null default_tag survival, and scraper error → 500.
 
@@ -126,7 +126,7 @@ describe('client.getModel() against live Hono app', () => {
   });
 });
 
-// ─── health ─────────────────────────────────────────────────────────────────────
+// === health ===
 // Exercises client.health() through the full chain. Verifies that the nested
 // checks object (search + model CheckResult) survives serialization intact.
 
