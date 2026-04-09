@@ -46,19 +46,16 @@ afterEach(() => {
 
 describe('scrapeSearchPage', () => {
   // === shared fixture URLs ===
-  // Fixture keys are fixed URLs to cache real HTML from ollama.com once and reuse.
-  // htmlCache populated in beforeAll; tests access it directly by key.
-  //
-  // 고정 URL을 key로 사용해서 메모리 캐시에 저장하고 모든 테스트에서 재사용.
-  // beforeAll에서 htmlCache를 채우고, 테스트에서 key로 직접 접근.
   const SEARCH_URL = `${OLLAMA_BASE}/search?page=1&q=${TEST_MODEL}`;
   const NO_RESULTS_URL = `${OLLAMA_BASE}/search?page=1&q=${NO_RESULTS_MODEL}`;
 
+  // 최초 1번은 미리 실행하여 데이터를 저장함 (warming)
   beforeAll(async () => {
     await fetchCached(SEARCH_URL);
     await fetchCached(NO_RESULTS_URL);
   });
 
+  // Q. 최소한 1개의 URL은 반환하는가.
   it('returns at least one model URL', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
@@ -68,6 +65,8 @@ describe('scrapeSearchPage', () => {
     expect(pages.length).toBeGreaterThan(0);
   });
 
+  // Q. 모든 결과가 올바른 형태의 http_url을 가지는가?
+  // NOTE: 유효한 URL은 https://ollama.com/로 시작하는 URL을 말한다.
   it('every result has a well-formed http_url', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
@@ -75,10 +74,12 @@ describe('scrapeSearchPage', () => {
     }));
     const pages = await scrapeSearchPage(1, TEST_MODEL);
     for (const p of pages) {
-      expect(p.http_url).toMatch(/^https:\/\/ollama\.com\//);
+      expect(p.http_url.startsWith('https://ollama.com/')).toBe(true);
     }
   });
 
+  // Q. 모든 결과가 유효한 model_id를 가지는가?
+  // NOTE: 유효한 model_id는 username/modelname 형태이다. 예: library/qwen3, alibayram/smollm3
   it('every result has a valid model_id', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
@@ -90,6 +91,7 @@ describe('scrapeSearchPage', () => {
     }
   });
 
+  // Q. 중복된 http_url이 없는가?
   it('returns no duplicate http_urls', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
@@ -100,6 +102,9 @@ describe('scrapeSearchPage', () => {
     expect(new Set(urls).size).toBe(urls.length);
   });
 
+  // Q. 결과 URL이 모델 경로이고 네비게이션 링크가 아닌가?
+  // NOTE: 모델 경로는 https://ollama.com/{namespace}/{name} 형태이며,
+  // 페이지 네비게이션(예: pagination) 링크는 제외되어야 한다.
   it('result URLs are model paths, not navigation links', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
@@ -111,6 +116,7 @@ describe('scrapeSearchPage', () => {
     }
   });
 
+  // Q. 페이지 번호와 키워드를 Ollama 검색 URL에 올바르게 전달하는가?
   it('passes page number and keyword to the Ollama search URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -123,6 +129,7 @@ describe('scrapeSearchPage', () => {
     expect(calledUrl).toContain(`q=${TEST_MODEL}`);
   });
 
+  // Q. 키워드가 비어있을 때 q 파라미터를 추가하지 않는가?
   it('does not append q param when keyword is empty', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -134,6 +141,9 @@ describe('scrapeSearchPage', () => {
     expect(calledUrl).not.toContain('q=');
   });
 
+  // Q. 선택자가 카드와 일치하지 않을 때 설명적인 에러를 던지는가?
+  // NOTE: 선택자 'a.group.w-full'은 ollama.com 검색 결과 페이지의 모델 카드를 가리킨다.
+  // 이 선택자를 찾을 수 없으면 ollama.com HTML 구조가 변경되었을 가능성이 높다.
   it('throws a descriptive error when the selector matches no cards', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
@@ -144,6 +154,7 @@ describe('scrapeSearchPage', () => {
     );
   });
 
+  // Q. Ollama이 2xx가 아닌 상태를 반환할 때 에러를 던지는가?
   it('throws when Ollama returns a non-2xx status', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: false,
