@@ -54,10 +54,15 @@ jobs:
             exit 0
           fi
 
+          # NOTE: -f is intentionally omitted. /health returns HTTP 503 when
+          # ok=false; with -f, curl discards the body and we lose failure_kind.
           probe() {
             local body
-            body=$(curl -fsS --max-time 15 "$API_URL/health" 2>/dev/null || echo '{"failure_kind":"api_unreachable"}')
-            echo "$body" | jq -r '.failure_kind // "null"'
+            if body=$(curl -sS --max-time 15 "$API_URL/health" 2>/dev/null); then
+              echo "$body" | jq -r '.failure_kind // "null"'
+            else
+              echo "api_unreachable"
+            fi
           }
 
           attempt1=$(probe)
