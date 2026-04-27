@@ -1,8 +1,6 @@
 name: Auto-Heal Scrapers
 
 on:
-  repository_dispatch:
-    types: [scraper_broken]
   workflow_dispatch:
     inputs:
       detected_at:
@@ -24,8 +22,109 @@ permissions:
   pull-requests: write
   issues: write
 
+env:
+  # Time window for counting prior auto-heal attempts toward escalation.
+  # Non-merged PRs created within this window count as "the same incident".
+  # Merged PRs are excluded — those represent successful fixes, not failures.
+  ATTEMPT_WINDOW_HOURS: '24'
+
 jobs:
+  triage:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.gate.outputs.proceed }}
+      attempt_number: ${{ steps.gate.outputs.attempt_number }}
+      attempt_label: ${{ steps.gate.outputs.attempt_label }}
+    steps:
+      # Single triage gate combining duplicate detection, attempt counting, and
+      # escalation. Defense-in-depth against the race where two health-monitor
+      # cron runs (5 min apart) both pass the pre-trigger check before either
+      # produces a PR. Also guarantees only one needs-human issue per incident.
+      - name: Triage incident
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DETECTED_AT: ${{ github.event.inputs.detected_at }}
+          RUN_URL: ${{ github.event.inputs.run_url }}
+          THIS_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          open_prs=$(gh pr list --repo "$REPO" --label auto-heal --state open --limit 100 --json number --jq 'length')
+          if [ "$open_prs" -gt 0 ]; then
+            echo "Aborting: $open_prs open auto-heal PR(s) already awaiting review."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          open_issues=$(gh issue list --repo "$REPO" --label needs-human --state open --limit 100 --json number --jq 'length')
+          if [ "$open_issues" -gt 0 ]; then
+            echo "Aborting: $open_issues open needs-human issue(s) blocking automation."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # GitHub search accepts YYYY-MM-DD; ISO-8601 with timezone offsets is
+          # undocumented in search syntax and may behave unpredictably.
+          window_hours="${ATTEMPT_WINDOW_HOURS:-24}"
+          since=$(date -u -d "${window_hours} hours ago" '+%Y-%m-%d')
+
+          # Count non-merged PRs only. Merged PRs represent successful fixes;
+          # if ollama.com changes again after a merged fix, that's a new incident.
+          recent_failures=$(gh pr list \
+            --repo "$REPO" \
+            --label auto-heal \
+            --state all \
+            --search "created:>=${since}" \
+            --limit 100 \
+            --json number,mergedAt \
+            --jq '[.[] | select(.mergedAt == null)] | length')
+
+          attempt=$((recent_failures + 1))
+          echo "Recent non-merged auto-heal PRs since ${since}: ${recent_failures}"
+          echo "This run is attempt #${attempt}"
+
+          if [ "$attempt" -ge 4 ]; then
+            echo "Three prior attempts failed within ${window_hours}h. Escalating."
+
+            existing=$(gh issue list --repo "$REPO" --label needs-human --state open --limit 1 --json number --jq 'length')
+            if [ "$existing" -gt 0 ]; then
+              echo "needs-human issue already open. Skipping issue creation."
+            else
+              gh issue create \
+                --repo "$REPO" \
+                --title "Auto-heal exhausted: 3 attempts failed within ${window_hours}h" \
+                --label "auto-heal,needs-human" \
+                --body "$(cat <<EOF
+          The auto-heal pipeline has tried 3 times in the last ${window_hours} hours and none of the resulting PRs were merged. Manual investigation required.
+
+          Detection details:
+          - Detected at: ${DETECTED_AT}
+          - Triggering run: ${RUN_URL}
+          - This auto-heal run: ${THIS_RUN_URL}
+
+          Common causes:
+          - The /health probe is producing false positives (ollama.com is fine)
+          - OpenCode is producing incorrect selector patches that humans keep rejecting
+          - The HTML structure change is too complex for automatic patching
+
+          Resolve this issue (close it) once the underlying problem is fixed. The pipeline will resume on the next /health probe.
+          EOF
+          )"
+            fi
+
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+          echo "attempt_number=${attempt}" >> "$GITHUB_OUTPUT"
+          echo "attempt_label=attempt-${attempt}" >> "$GITHUB_OUTPUT"
+
   heal:
+    needs: triage
+    if: needs.triage.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,10 +141,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # OpenCode Go subscription provides DeepSeek V4 Pro via OPENCODE_API_KEY.
-      # If the model ID doesn't resolve, try these alternatives:
-      #   opencode-go/deepseek-v4-pro  (explicit Go provider)
-      #   deepseek/deepseek-v4-pro     (direct DeepSeek, needs DEEPSEEK_API_KEY)
       - name: Run OpenCode to patch scrapers
         uses: anomalyco/opencode/github@latest
         env:
@@ -56,8 +151,9 @@ jobs:
             ollama.com changed its HTML structure and our scrapers can no longer parse it.
 
             Detection details:
-            - Detected at: ${{ github.event.client_payload.detected_at || github.event.inputs.detected_at }}
-            - Triggering run: ${{ github.event.client_payload.run_url || github.event.inputs.run_url }}
+            - Detected at: ${{ github.event.inputs.detected_at }}
+            - Triggering run: ${{ github.event.inputs.run_url }}
+            - This is auto-heal attempt ${{ needs.triage.outputs.attempt_number }} of 3 in the last ${{ env.ATTEMPT_WINDOW_HOURS }}h.
 
             Your task:
             1. Visit https://ollama.com/search?q=qwen and inspect the model card HTML
@@ -66,5 +162,5 @@ jobs:
                - api/src/search/scraper.ts (current: 'a.group.w-full')
                - api/src/model/scraper.ts (current: 'a[class*="flex flex-col"]')
             4. Run `pnpm test:api` to verify (note: unit tests use mocked HTML; you may need to update fixtures too)
-            5. Open a PR with label `auto-heal` and `attempt-1`
+            5. Open a PR with labels `auto-heal` and `${{ needs.triage.outputs.attempt_label }}`
             6. DO NOT auto-merge. A human must review and merge.

@@ -12,6 +12,8 @@ on:
 
 permissions:
   actions: write
+  pull-requests: read
+  issues: read
 
 concurrency:
   group: health-monitor
@@ -79,6 +81,34 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+
+          # Duplicate prevention: skip trigger if a prior incident is still being handled.
+          # Both checks short-circuit so we don't pile up redundant workflow runs or PRs.
+          open_prs=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --label auto-heal \
+            --state open \
+            --limit 100 \
+            --json number \
+            --jq 'length')
+          if [ "$open_prs" -gt 0 ]; then
+            echo "Skipping trigger: $open_prs open auto-heal PR(s) already awaiting review."
+            exit 0
+          fi
+
+          open_issues=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label needs-human \
+            --state open \
+            --limit 100 \
+            --json number \
+            --jq 'length')
+          if [ "$open_issues" -gt 0 ]; then
+            echo "Skipping trigger: $open_issues open needs-human issue(s) awaiting manual intervention."
+            exit 0
+          fi
+
           gh workflow run "Auto-Heal Scrapers" \
             --repo "${{ github.repository }}" \
             -f detected_at="${{ github.event.repository.updated_at }}" \
