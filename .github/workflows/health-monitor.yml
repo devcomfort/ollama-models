@@ -9,6 +9,13 @@ on:
         description: 'Force trigger auto-heal regardless of health status'
         type: boolean
         default: false
+      target_env:
+        description: 'Which API to probe (cron always probes production)'
+        type: choice
+        options:
+          - production
+          - staging
+        default: production
 
 permissions:
   actions: write
@@ -26,9 +33,19 @@ jobs:
       - name: Probe /health (3 attempts, 5s apart, only on structure_change)
         id: probe
         env:
-          API_URL: https://ollama-models-api.devcomfort.workers.dev
+          # Cron runs default to production. Manual dispatch can target staging
+          # for auto-heal e2e simulation. The empty-string fallback handles the
+          # cron case where github.event.inputs is null.
+          TARGET_ENV: ${{ github.event.inputs.target_env || 'production' }}
         run: |
           set -uo pipefail
+
+          if [ "$TARGET_ENV" = "staging" ]; then
+            API_URL="https://ollama-models-api-staging.devcomfort.workers.dev"
+          else
+            API_URL="https://ollama-models-api.devcomfort.workers.dev"
+          fi
+          echo "Probing: $API_URL"
 
           # test_mode: skip health probes and force chain execution for debugging
           if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
