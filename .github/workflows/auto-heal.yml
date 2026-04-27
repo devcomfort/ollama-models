@@ -30,6 +30,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       # OpenCode Go subscription provides DeepSeek V4 Pro via OPENCODE_API_KEY.
       # If the model ID doesn't resolve, try these alternatives:
       #   opencode-go/deepseek-v4-pro  (explicit Go provider)
