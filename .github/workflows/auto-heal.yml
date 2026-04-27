@@ -39,7 +39,7 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          model: opencode/deepseek-v4-pro
+          model: opencode-go/deepseek-v4-pro
           prompt: |
             ollama.com changed its HTML structure and our scrapers can no longer parse it.
 
