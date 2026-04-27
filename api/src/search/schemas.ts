@@ -58,8 +58,8 @@ export const ModelPageSchema = z.object({
  * ```
  */
 export const SearchQuerySchema = z.object({
-  q: z.string().optional().openapi({
-    description: 'Search keyword (optional) / 검색 키워드 (선택)',
+  q: z.string().max(200).optional().openapi({
+    description: 'Search keyword (optional, max 200 characters) / 검색 키워드 (선택, 최대 200자)',
     example: 'qwen',
   }),
   page: z.string().optional().openapi({

@@ -4,6 +4,15 @@ on:
   repository_dispatch:
     types: [scraper_broken]
   workflow_dispatch:
+    inputs:
+      detected_at:
+        description: 'When the failure was detected'
+        type: string
+        default: ''
+      run_url:
+        description: 'URL of the triggering health-monitor run'
+        type: string
+        default: ''
 
 concurrency:
   group: auto-heal
@@ -34,8 +43,8 @@ jobs:
             ollama.com changed its HTML structure and our scrapers can no longer parse it.
 
             Detection details:
-            - Detected at: ${{ github.event.client_payload.detected_at }}
-            - Triggering run: ${{ github.event.client_payload.run_url }}
+            - Detected at: ${{ github.event.client_payload.detected_at || github.event.inputs.detected_at }}
+            - Triggering run: ${{ github.event.client_payload.run_url || github.event.inputs.run_url }}
 
             Your task:
             1. Visit https://ollama.com/search?q=qwen and inspect the model card HTML

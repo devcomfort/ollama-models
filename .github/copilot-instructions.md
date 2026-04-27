@@ -181,3 +181,25 @@
 - `library/{name}` — official Ollama-maintained models (e.g. `library/qwen3`)
 - `{username}/{name}` — community models (e.g. `alibayram/smollm3`)
 - Tags are pull-ready: `library/` prefix stripped for official models (e.g. `qwen3:latest`), kept for community models (e.g. `RogerBen/custom-model:v1`)
+
+## Testing Strategy
+
+### Test Layering
+
+| Layer | Scope | Environment | Count |
+|---|---|---|---|
+| Unit | Individual functions / modules | Node.js (Vitest) | 72 |
+| Integration | Full request/response chain | Node.js (in-process Hono or subprocess) | 39 |
+| E2E | Deployed live API | Production URL | 23 |
+
+### Harmful Mock Anti-Pattern
+
+**Never** reimplement route handlers, middleware, or validation logic in a mock server for integration tests. This creates a parallel code path that drifts from production and gives false confidence.
+
+**Correct approach**: Import the actual production `app` and serve it under Node.js via `@hono/node-server`. Stub only external dependencies at the lowest possible layer:
+- `fetch()` calls to third-party APIs (e.g. ollama.com) — cache responses in memory
+- Cloudflare Workers-only globals (e.g. `caches`) — no-op stubs
+
+All route handlers, middleware (`withCache`, `cors`), Zod validation, error handling, and alert logic must run exactly as in production.
+
+**Example**: `api/scripts/ci-server.ts` imports `app` from `api/src/index.ts` and intercepts only `fetch()` calls to `ollama.com`. The production error response format, cache headers, and CORS behavior are all exercised.

@@ -23,8 +23,8 @@ import { z } from '@hono/zod-openapi';
  * ```
  */
 export const ModelQuerySchema = z.object({
-  name: z.string().openapi({
-    description: 'Model name in `library/{name}`, `{username}/{name}`, or bare `{name}` format (required) / `library/{name}`, `{username}/{name}`, 또는 단순 `{name}` 형식의 모델 이름 (필수)',
+  name: z.string().max(128).openapi({
+    description: 'Model identifier in `library/{name}`, `{username}/{name}`, or full URL format (required, max 128 characters) / `library/{name}`, `{username}/{name}`, 또는 전체 URL 형식의 모델 식별자 (필수, 최대 128자)',
     example: 'library/qwen3',
   }),
 }).openapi('ModelQuery');

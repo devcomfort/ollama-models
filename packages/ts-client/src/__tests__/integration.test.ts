@@ -27,13 +27,20 @@ import { OllamaModelsClient } from '../client';
 const mockSearch = vi.mocked(scrapeSearchPage);
 const mockModel = vi.mocked(scrapeModelPage);
 
+const TEST_ENV = {
+  OLLAMA_BASE: 'https://ollama.com',
+  OLLAMA_USER_AGENT: 'ollama-models-api/0.1 (+https://github.com/devcomfort/ollama-models)',
+  OLLAMA_ACCEPT: 'text/html,application/xhtml+xml',
+  OLLAMA_ACCEPT_LANGUAGE: 'en-US,en;q=0.9',
+};
+
 /**
  * Route every `fetch(url, init)` call through the Hono app so the client
  * talks to the real route handlers without a network server.
  */
 function stubFetchThroughApp(): void {
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
-    return app.request(url, init);
+    return app.request(url, init, TEST_ENV);
   });
 }
 
@@ -79,12 +86,12 @@ describe('client.search() against live Hono app', () => {
   it('forwards keyword and page as query parameters', async () => {
     mockSearch.mockResolvedValue([]);
     await client.search('mistral', 3);
-    expect(mockSearch).toHaveBeenCalledWith(3, 'mistral');
+    expect(mockSearch).toHaveBeenCalledWith(3, 'mistral', expect.any(Object));
   });
 
-  it('throws on scraper failure (500 from API)', async () => {
+  it('throws on scraper failure (502 from API)', async () => {
     mockSearch.mockRejectedValue(new Error('scraper failed'));
-    await expect(client.search('broken')).rejects.toThrow('HTTP 500');
+    await expect(client.search('broken')).rejects.toThrow('HTTP 502');
   });
 });
 
@@ -120,9 +127,9 @@ describe('client.getModel() against live Hono app', () => {
     expect(result.default_tag).toBeNull();
   });
 
-  it('throws on scraper failure (500 from API)', async () => {
+  it('throws on scraper failure (502 from API)', async () => {
     mockModel.mockRejectedValue(new Error('scrape error'));
-    await expect(client.getModel('library/qwen3')).rejects.toThrow('HTTP 500');
+    await expect(client.getModel('library/qwen3')).rejects.toThrow('HTTP 502');
   });
 });
 

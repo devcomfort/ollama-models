@@ -52,7 +52,7 @@ def mock_api_url() -> Generator[str, None, None]:
     repo_root = os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     )
-    script = os.path.join(repo_root, "api", "scripts", "serve-for-ci.ts")
+    script = os.path.join(repo_root, "api", "scripts", "ci-server.ts")
 
     proc = subprocess.Popen(
         ["npx", "tsx", script],

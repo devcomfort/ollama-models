@@ -10,6 +10,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  actions: write
+
 concurrency:
   group: health-monitor
   cancel-in-progress: false
@@ -76,7 +79,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api repos/${{ github.repository }}/dispatches \
-            -f event_type=scraper_broken \
-            -f 'client_payload[detected_at]=${{ github.event.repository.updated_at }}' \
-            -f 'client_payload[run_url]=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          gh workflow run "Auto-Heal Scrapers" \
+            --repo "${{ github.repository }}" \
+            -f detected_at="${{ github.event.repository.updated_at }}" \
+            -f run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
