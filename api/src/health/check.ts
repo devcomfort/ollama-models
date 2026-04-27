@@ -1,18 +1,42 @@
-import { OLLAMA_BASE } from '../constants';
 import { scrapeSearchPage } from '../search/scraper';
 import { scrapeModelPage } from '../model/scraper';
+import { UpstreamError, ParseError } from '../errors';
 import type { ModelPage } from '../search/types';
 import type { CheckResult, HealthStatus } from './types';
+
+interface Env {
+  OLLAMA_BASE: string;
+  OLLAMA_USER_AGENT: string;
+  OLLAMA_ACCEPT: string;
+  OLLAMA_ACCEPT_LANGUAGE: string;
+}
+
+type FailureKind = 'structure_change' | 'upstream_down' | 'network_error';
+
+function classify(err: unknown): FailureKind {
+  if (err instanceof ParseError) return 'structure_change';
+  if (err instanceof UpstreamError) return 'upstream_down';
+  return 'network_error';
+}
+
+function worstKind(a: FailureKind | null, b: FailureKind | null): FailureKind | null {
+  if (a === 'structure_change' || b === 'structure_change') return 'structure_change';
+  if (a === 'upstream_down' || b === 'upstream_down') return 'upstream_down';
+  if (a === 'network_error' || b === 'network_error') return 'network_error';
+  return null;
+}
 
 /**
  * Well-known probe target with a reliably large number of tags.
  *
  * 태그 수가 안정적으로 많은 잘 알려진 프로브 대상.
  */
-export const PROBE_MODEL: ModelPage = {
-  http_url: `${OLLAMA_BASE}/library/qwen3`,
-  model_id: 'library/qwen3',
-};
+export function createProbeModel(env: Env): ModelPage {
+  return {
+    http_url: `${env.OLLAMA_BASE}/library/qwen3`,
+    model_id: 'library/qwen3',
+  };
+}
 
 /**
  * Keyword used for search scraper probe.
@@ -37,26 +61,28 @@ export const PROBE_KEYWORD = 'qwen';
  *   search and model scrapers succeed.
  * @returns 검색 및 모델 스크래퍼 모두 성공할 때만 `ok`가 `true`인 {@link HealthStatus}.
  */
-export async function runHealthCheck(): Promise<HealthStatus> {
+export async function runHealthCheck(env: Env): Promise<HealthStatus> {
+  const probeModel = createProbeModel(env);
   const timestamp = new Date().toISOString();
-  let search: CheckResult = { ok: false };
-  let model: CheckResult = { ok: false };
+  let search: CheckResult = { ok: false, kind: null };
+  let model: CheckResult = { ok: false, kind: null };
 
   try {
-    const pages = await scrapeSearchPage(1, PROBE_KEYWORD);
-    search = { ok: pages.length > 0, count: pages.length };
+    const pages = await scrapeSearchPage(1, PROBE_KEYWORD, env);
+    search = { ok: pages.length > 0, count: pages.length, kind: null };
   } catch (err) {
-    search = { ok: false, error: String(err) };
+    search = { ok: false, error: String(err), kind: classify(err) };
   }
 
   try {
-    const { tags } = await scrapeModelPage(PROBE_MODEL);
-    model = { ok: tags.length > 0, count: tags.length };
+    const { tags } = await scrapeModelPage(probeModel, env);
+    model = { ok: tags.length > 0, count: tags.length, kind: null };
   } catch (err) {
-    model = { ok: false, error: String(err) };
+    model = { ok: false, error: String(err), kind: classify(err) };
   }
 
-  return { ok: search.ok && model.ok, timestamp, checks: { search, model } };
+  const failure_kind = worstKind(search.kind ?? null, model.kind ?? null);
+  return { ok: search.ok && model.ok, timestamp, checks: { search, model }, failure_kind };
 }
 
 /**
@@ -69,7 +95,7 @@ export async function runHealthCheck(): Promise<HealthStatus> {
  * @param status - The health status object containing check results.
  * @returns A formatted Slack mrkdwn message string.
  */
-export function buildHealthAlertMessage(status: HealthStatus): string {
+export function buildHealthAlertMessage(status: HealthStatus, env: Env, probeModel: ModelPage): string {
   const entries = Object.entries(status.checks) as [string, CheckResult][];
 
   const lines: string[] = [
@@ -84,16 +110,16 @@ export function buildHealthAlertMessage(status: HealthStatus): string {
       if (name === 'search') {
         lines.push(`✅ *${label}* — searched for \`"${PROBE_KEYWORD}"\`, ${result.count} model(s) found`);
       } else {
-        lines.push(`✅ *${label}* — fetched tags for \`${PROBE_MODEL.model_id}\`, ${result.count} tag(s) found`);
+        lines.push(`✅ *${label}* — fetched tags for \`${probeModel.model_id}\`, ${result.count} tag(s) found`);
       }
     } else {
       if (name === 'search') {
-        const url = `${OLLAMA_BASE}/search?q=${encodeURIComponent(PROBE_KEYWORD)}`;
+        const url = `${env.OLLAMA_BASE}/search?q=${encodeURIComponent(PROBE_KEYWORD)}`;
         lines.push(`❌ *${label}* — searched for \`"${PROBE_KEYWORD}"\` on page 1`);
         lines.push(`  Probe URL: <${url}|${url}>`);
       } else {
-        const url = `${PROBE_MODEL.http_url}/tags`;
-        lines.push(`❌ *${label}* — fetched tags for \`${PROBE_MODEL.model_id}\``);
+        const url = `${probeModel.http_url}/tags`;
+        lines.push(`❌ *${label}* — fetched tags for \`${probeModel.model_id}\``);
         lines.push(`  Probe URL: <${url}|${url}>`);
       }
       lines.push(`  Error: \`${result.error ?? 'returned 0 results'}\``);
@@ -105,11 +131,11 @@ export function buildHealthAlertMessage(status: HealthStatus): string {
   lines.push(`📍 *Where to check:*`);
   lines.push(``);
   lines.push(`_Search (model list)_`);
-  lines.push(`• Ollama search page: <${OLLAMA_BASE}/search?q=${encodeURIComponent(PROBE_KEYWORD)}|${OLLAMA_BASE}/search?q=${PROBE_KEYWORD}>`);
+  lines.push(`• Ollama search page: <${env.OLLAMA_BASE}/search?q=${encodeURIComponent(PROBE_KEYWORD)}|${env.OLLAMA_BASE}/search?q=${PROBE_KEYWORD}>`);
   lines.push(`• Scraper code: \`api/src/search/scraper.ts\` → \`scrapeSearchPage()\``);
   lines.push(``);
   lines.push(`_Model (tag lookup)_`);
-  lines.push(`• Ollama model tags page: <${PROBE_MODEL.http_url}/tags|${PROBE_MODEL.http_url}/tags>`);
+  lines.push(`• Ollama model tags page: <${probeModel.http_url}/tags|${probeModel.http_url}/tags>`);
   lines.push(`• Scraper code: \`api/src/model/scraper.ts\` → \`scrapeModelPage()\``);
   lines.push(``);
   lines.push(`_General_`);

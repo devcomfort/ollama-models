@@ -1,3 +1,14 @@
+// Stub the Cloudflare Workers Cache API before importing `app`.
+Object.defineProperty(globalThis, 'caches', {
+  value: {
+    default: {
+      match: async () => undefined,
+      put: async () => undefined,
+    },
+  },
+  writable: true,
+});
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // vi.mock is hoisted — runs before imports resolve
@@ -11,15 +22,18 @@ vi.mock('../model/scraper', () => ({
 import { app } from '../index';
 import { scrapeSearchPage } from '../search/scraper';
 import { scrapeModelPage } from '../model/scraper';
+import { ParseError } from '../errors';
 
 const mockSearch = vi.mocked(scrapeSearchPage);
 const mockModel = vi.mocked(scrapeModelPage);
 
-// Resets mock call counts, return values, and implementations before each test
-// so assertions like toHaveBeenCalledWith() reflect only the current test.
-//
-// 각 테스트 전에 mock 호출 횟수, 반환값, 구현을 초기화하여
-// toHaveBeenCalledWith() 등의 단언이 현재 테스트만 반영하도록 한다.
+const TEST_ENV = {
+  OLLAMA_BASE: 'https://ollama.com',
+  OLLAMA_USER_AGENT: 'ollama-models-api/0.1 (+https://github.com/devcomfort/ollama-models)',
+  OLLAMA_ACCEPT: 'text/html,application/xhtml+xml',
+  OLLAMA_ACCEPT_LANGUAGE: 'en-US,en;q=0.9',
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -40,7 +54,7 @@ describe('GET /search', () => {
       { http_url: 'https://ollama.com/library/mistral', model_id: 'library/mistral' },
     ]);
 
-    const res = await app.request('/search?q=qwen3&page=1');
+    const res = await app.request('/search?q=qwen3&page=1', undefined, TEST_ENV);
     expect(res.status).toBe(200);
 
     const body = await res.json() as Record<string, unknown>;
@@ -55,7 +69,7 @@ describe('GET /search', () => {
   it('populates model_id for a library model', async () => {
     mockSearch.mockResolvedValue([{ http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' }]);
 
-    const res = await app.request('/search?q=qwen3&page=1');
+    const res = await app.request('/search?q=qwen3&page=1', undefined, TEST_ENV);
     const body = await res.json() as Record<string, unknown>;
     const page = (body.pages as { model_id: string }[])[0];
     expect(page.model_id).toBe('library/qwen3');
@@ -64,7 +78,7 @@ describe('GET /search', () => {
   it('populates model_id for a community model', async () => {
     mockSearch.mockResolvedValue([{ http_url: 'https://ollama.com/alibayram/smollm3', model_id: 'alibayram/smollm3' }]);
 
-    const res = await app.request('/search?q=smollm3&page=1');
+    const res = await app.request('/search?q=smollm3&page=1', undefined, TEST_ENV);
     const body = await res.json() as Record<string, unknown>;
     const page = (body.pages as { model_id: string }[])[0];
     expect(page.model_id).toBe('alibayram/smollm3');
@@ -72,30 +86,32 @@ describe('GET /search', () => {
 
   it('defaults page to 1 when the param is absent', async () => {
     mockSearch.mockResolvedValue([]);
-    const res = await app.request('/search?q=test');
+    const res = await app.request('/search?q=test', undefined, TEST_ENV);
     const body = await res.json() as Record<string, unknown>;
     expect(body.page_range).toBe(1);
-    expect(mockSearch).toHaveBeenCalledWith(1, 'test');
+    expect(mockSearch).toHaveBeenCalledWith(1, 'test', TEST_ENV);
   });
 
   it('defaults keyword to empty string when q is absent', async () => {
     mockSearch.mockResolvedValue([]);
-    await app.request('/search');
-    expect(mockSearch).toHaveBeenCalledWith(1, '');
+    await app.request('/search', undefined, TEST_ENV);
+    expect(mockSearch).toHaveBeenCalledWith(1, '', TEST_ENV);
   });
 
   it('clamps an invalid page value to 1', async () => {
     mockSearch.mockResolvedValue([]);
-    await app.request('/search?page=0');
-    expect(mockSearch).toHaveBeenCalledWith(1, '');
+    await app.request('/search?page=0', undefined, TEST_ENV);
+    expect(mockSearch).toHaveBeenCalledWith(1, '', TEST_ENV);
   });
 
-  it('returns 500 when the scraper throws', async () => {
+  it('returns 502 when the scraper throws', async () => {
     mockSearch.mockRejectedValue(new Error('scraper failure'));
-    const res = await app.request('/search?q=test');
-    expect(res.status).toBe(500);
+    const res = await app.request('/search?q=test', undefined, TEST_ENV);
+    expect(res.status).toBe(502);
     const body = await res.json() as Record<string, unknown>;
-    expect(String(body.error)).toContain('scraper failure');
+    const error = body.error as { code: string; message: string; detail: string };
+    expect(error.code).toBe('SCRAPE_UPSTREAM_ERROR');
+    expect(error.detail).toContain('scraper failure');
   });
 });
 
@@ -115,7 +131,7 @@ describe('GET /model', () => {
       default_tag: 'qwen3:latest',
     });
 
-    const res = await app.request('/model?name=library/qwen3');
+    const res = await app.request('/model?name=library/qwen3', undefined, TEST_ENV);
     expect(res.status).toBe(200);
 
     const body = await res.json() as Record<string, unknown>;
@@ -133,7 +149,7 @@ describe('GET /model', () => {
       default_tag: null,
     });
 
-    const res = await app.request('/model?name=library/qwen3');
+    const res = await app.request('/model?name=library/qwen3', undefined, TEST_ENV);
     const body = await res.json() as Record<string, unknown>;
     expect(body.default_tag).toBeNull();
   });
@@ -146,35 +162,39 @@ describe('GET /model', () => {
       default_tag: null,
     });
 
-    const res = await app.request('/model?name=RogerBen/custom-model');
+    const res = await app.request('/model?name=RogerBen/custom-model', undefined, TEST_ENV);
     const body = await res.json() as Record<string, unknown>;
     expect(body.id).toBe('RogerBen/custom-model');
     expect(body.tags).toEqual(['RogerBen/custom-model:v1']);
   });
 
   it('returns 400 when the name parameter is missing', async () => {
-    const res = await app.request('/model');
+    const res = await app.request('/model', undefined, TEST_ENV);
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when the name parameter is blank', async () => {
-    const res = await app.request('/model?name=');
+    const res = await app.request('/model?name=', undefined, TEST_ENV);
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when a bare model name without profile prefix is given', async () => {
-    const res = await app.request('/model?name=qwen3');
+    const res = await app.request('/model?name=qwen3', undefined, TEST_ENV);
     expect(res.status).toBe(400);
     const body = await res.json() as Record<string, unknown>;
-    expect(String(body.error)).toContain('library/qwen3');
+    const error = body.error as { code: string; message: string };
+    expect(error.code).toBe('INVALID_PARAMETER');
+    expect(error.message).toContain('library/qwen3');
   });
 
-  it('returns 500 when the scraper throws', async () => {
+  it('returns 502 when the scraper throws', async () => {
     mockModel.mockRejectedValue(new Error('network error'));
-    const res = await app.request('/model?name=library/qwen3');
-    expect(res.status).toBe(500);
+    const res = await app.request('/model?name=library/qwen3', undefined, TEST_ENV);
+    expect(res.status).toBe(502);
     const body = await res.json() as Record<string, unknown>;
-    expect(String(body.error)).toContain('network error');
+    const error = body.error as { code: string; message: string; detail: string };
+    expect(error.code).toBe('SCRAPE_UPSTREAM_ERROR');
+    expect(error.detail).toContain('network error');
   });
 });
 
@@ -195,7 +215,7 @@ describe('GET /health', () => {
       default_tag: 'qwen3:latest',
     });
 
-    const res = await app.request('/health');
+    const res = await app.request('/health', undefined, TEST_ENV);
     expect(res.status).toBe(200);
 
     const body = await res.json() as Record<string, unknown>;
@@ -203,6 +223,7 @@ describe('GET /health', () => {
     expect((body.checks as Record<string, { ok: boolean }>).search.ok).toBe(true);
     expect((body.checks as Record<string, { ok: boolean }>).model.ok).toBe(true);
     expect(typeof body.timestamp).toBe('string');
+    expect(body.failure_kind).toBeNull();
   });
 
   it('returns 503 and ok:false when the search scraper fails', async () => {
@@ -216,14 +237,16 @@ describe('GET /health', () => {
       default_tag: 'qwen3:latest',
     });
 
-    const res = await app.request('/health');
+    const res = await app.request('/health', undefined, TEST_ENV);
     expect(res.status).toBe(503);
 
     const body = await res.json() as Record<string, unknown>;
     expect(body.ok).toBe(false);
-    const searchCheck = (body.checks as Record<string, { ok: boolean; error?: string }>).search;
+    const searchCheck = (body.checks as Record<string, { ok: boolean; error?: string; kind: string | null }>).search;
     expect(searchCheck.ok).toBe(false);
     expect(searchCheck.error).toContain('a.group.w-full');
+    expect(searchCheck.kind).toBe('network_error');
+    expect(body.failure_kind).toBe('network_error');
   });
 
   it('returns 503 and ok:false when the model scraper fails', async () => {
@@ -232,13 +255,14 @@ describe('GET /health', () => {
       new Error("selector 'a[class*=\"flex flex-col\"]' may no longer match"),
     );
 
-    const res = await app.request('/health');
+    const res = await app.request('/health', undefined, TEST_ENV);
     expect(res.status).toBe(503);
 
     const body = await res.json() as Record<string, unknown>;
     expect(body.ok).toBe(false);
-    const modelCheck = (body.checks as Record<string, { ok: boolean; error?: string }>).model;
+    const modelCheck = (body.checks as Record<string, { ok: boolean; error?: string; kind: string | null }>).model;
     expect(modelCheck.ok).toBe(false);
+    expect(modelCheck.kind).toBe('network_error');
   });
 
   it('reflects the result count in each check', async () => {
@@ -253,10 +277,28 @@ describe('GET /health', () => {
       default_tag: 'qwen3:latest',
     });
 
-    const res = await app.request('/health');
+    const res = await app.request('/health', undefined, TEST_ENV);
     const body = await res.json() as Record<string, unknown>;
     const checks = body.checks as Record<string, { count: number }>;
     expect(checks.search.count).toBe(2);
     expect(checks.model.count).toBe(3);
+  });
+
+  it('returns structure_change kind when search scraper throws ParseError', async () => {
+    mockSearch.mockRejectedValue(new ParseError('selector broken'));
+    mockModel.mockResolvedValue({
+      page_url: 'https://ollama.com/library/qwen3',
+      id: 'library/qwen3',
+      tags: ['qwen3:latest'],
+      default_tag: 'qwen3:latest',
+    });
+
+    const res = await app.request('/health', undefined, TEST_ENV);
+    expect(res.status).toBe(503);
+
+    const body = await res.json() as Record<string, unknown>;
+    const searchCheck = (body.checks as Record<string, { ok: boolean; kind: string | null }>).search;
+    expect(searchCheck.kind).toBe('structure_change');
+    expect(body.failure_kind).toBe('structure_change');
   });
 });

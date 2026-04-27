@@ -1,7 +1,13 @@
 import { parse } from 'node-html-parser';
-import { assert } from 'es-toolkit/util';
-import { OLLAMA_BASE, FETCH_HEADERS } from '../constants';
+import { UpstreamError, ParseError } from '../errors';
 import type { ModelPage } from './types';
+
+interface Env {
+  OLLAMA_BASE: string;
+  OLLAMA_USER_AGENT: string;
+  OLLAMA_ACCEPT: string;
+  OLLAMA_ACCEPT_LANGUAGE: string;
+}
 
 /**
  * Fetches an Ollama search results page and returns unique model page URLs.
@@ -20,11 +26,11 @@ import type { ModelPage } from './types';
  * @param keyword - 검색 키워드. 빈 문자열을 전달하면 모든 모델을 나열한다.
  * @returns {@link ModelPage} entries for every distinct model found on the page.
  * @returns 페이지에서 찾은 모든 고유 모델의 {@link ModelPage} 항목.
- * @throws {Error} When Ollama returns a non-2xx HTTP status.
- * @throws {Error} Ollama가 2xx가 아닌 HTTP 상태를 반환할 때.
- * @throws {Error} When the CSS selector matches zero elements, indicating an
+ * @throws {UpstreamError} When Ollama returns a non-2xx HTTP status.
+ * @throws {UpstreamError} Ollama가 2xx가 아닌 HTTP 상태를 반환할 때.
+ * @throws {ParseError} When the CSS selector matches zero elements, indicating an
  *   HTML structure change on Ollama's side.
- * @throws {Error} CSS 선택자가 요소를 찾지 못해 Ollama 측의 HTML 구조 변경을
+ * @throws {ParseError} CSS 선택자가 요소를 찾지 못해 Ollama 측의 HTML 구조 변경을
  *   나타낼 때.
  * @example
  * ```typescript
@@ -32,14 +38,20 @@ import type { ModelPage } from './types';
  * // [{ http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' }, ...]
  * ```
  */
-export async function scrapeSearchPage(page: number, keyword: string): Promise<ModelPage[]> {
-  const searchUrl = new URL(`${OLLAMA_BASE}/search`);
+export async function scrapeSearchPage(page: number, keyword: string, env: Env): Promise<ModelPage[]> {
+  const searchUrl = new URL(`${env.OLLAMA_BASE}/search`);
   searchUrl.searchParams.set('page', String(page));
   if (keyword.trim()) searchUrl.searchParams.set('q', keyword.trim());
 
-  const res = await fetch(searchUrl.toString(), { headers: FETCH_HEADERS });
+  const res = await fetch(searchUrl.toString(), {
+    headers: {
+      'User-Agent': env.OLLAMA_USER_AGENT,
+      Accept: env.OLLAMA_ACCEPT,
+      'Accept-Language': env.OLLAMA_ACCEPT_LANGUAGE,
+    },
+  });
   if (!res.ok) {
-    throw new Error(`Ollama returned HTTP ${res.status} for search page`);
+    throw new UpstreamError(`Ollama returned HTTP ${res.status} for search page`, res.status);
   }
 
   const root = parse(await res.text());
@@ -49,17 +61,19 @@ export async function scrapeSearchPage(page: number, keyword: string): Promise<M
   for (const el of root.querySelectorAll('a.group.w-full')) {
     const href = el.getAttribute('href');
     if (!href) continue;
-    const http_url = `${OLLAMA_BASE}${href}`;
+    const http_url = `${env.OLLAMA_BASE}${href}`;
     if (!seen.has(http_url)) {
       seen.add(http_url);
       pages.push({ http_url, model_id: href.replace(/^\//, '') });
     }
   }
 
-  assert(pages.length > 0,
-    'Scraper: no model cards found on search page. ' +
-    "The selector 'a.group.w-full' may no longer match — Ollama's HTML structure may have changed.",
-  );
+  if (pages.length === 0) {
+    throw new ParseError(
+      'Scraper: no model cards found on search page. ' +
+      "The selector 'a.group.w-full' may no longer match — Ollama's HTML structure may have changed.",
+    );
+  }
 
   return pages;
 }

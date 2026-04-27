@@ -24,7 +24,7 @@ import { z } from '@hono/zod-openapi';
  * ```json
  * // 프로브 성공 (10개 결과 반환)
  * // Probe succeeded with 10 results
- * { "ok": true, "count": 10 }
+ * { "ok": true, "count": 10, "kind": null }
  * ```
  *
  * @example
@@ -32,7 +32,7 @@ import { z } from '@hono/zod-openapi';
  * ```json
  * // 프로브 실패 (선택자 불일치)
  * // Probe failed due to selector mismatch
- * { "ok": false, "error": "selector 'a.group.w-full' may no longer match" }
+ * { "ok": false, "error": "selector 'a.group.w-full' may no longer match", "kind": "structure_change" }
  * ```
  */
 export const CheckResultSchema = z.object({
@@ -44,6 +44,9 @@ export const CheckResultSchema = z.object({
   }),
   error: z.string().optional().openapi({
     description: 'Stringified error message when the check failed (optional) / 체크 실패 시 문자열화된 에러 메시지 (선택)',
+  }),
+  kind: z.enum(['structure_change', 'upstream_down', 'network_error']).nullable().openapi({
+    description: 'Failure classification: structure_change (parse error from scraper), upstream_down (ollama.com non-2xx), or network_error (fetch rejection). null when successful. / 실패 분류: structure_change(스크래퍼 파싱 에러), upstream_down(ollama.com 2xx 아님), network_error(fetch 거부). 성공 시 null.',
   }),
 }).openapi('CheckResult');
 
@@ -74,9 +77,10 @@ export const CheckResultSchema = z.object({
  *   "ok": true,
  *   "timestamp": "2026-04-08T12:00:00.000Z",
  *   "checks": {
- *     "search": { "ok": true, "count": 10 },
- *     "model": { "ok": true, "count": 5 }
- *   }
+ *     "search": { "ok": true, "count": 10, "kind": null },
+ *     "model": { "ok": true, "count": 5, "kind": null }
+ *   },
+ *   "failure_kind": null
  * }
  * ```
  *
@@ -87,9 +91,10 @@ export const CheckResultSchema = z.object({
  *   "ok": false,
  *   "timestamp": "2026-04-08T12:00:00.000Z",
  *   "checks": {
- *     "search": { "ok": false, "error": "selector 'a.group.w-full' may no longer match" },
- *     "model": { "ok": true, "count": 3 }
- *   }
+ *     "search": { "ok": false, "error": "selector 'a.group.w-full' may no longer match", "kind": "structure_change" },
+ *     "model": { "ok": true, "count": 3, "kind": null }
+ *   },
+ *   "failure_kind": "structure_change"
  * }
  * ```
  */
@@ -106,5 +111,8 @@ export const HealthStatusSchema = z.object({
     model: CheckResultSchema,
   }).openapi({
     description: 'Per-scraper probe results (required) / 스크래퍼별 프로브 결과 (필수)',
+  }),
+  failure_kind: z.enum(['structure_change', 'upstream_down', 'network_error']).nullable().openapi({
+    description: 'Aggregated failure kind: the worst-case across all checks. null when all checks pass. / 집계된 실패 종류: 모든 체크 중 최악의 경우. 모든 체크 통과 시 null.',
   }),
 }).openapi('HealthStatus');

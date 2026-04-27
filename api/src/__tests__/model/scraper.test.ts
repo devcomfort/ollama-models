@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { scrapeModelPage } from '../../model/scraper';
+import { ParseError, UpstreamError } from '../../errors';
 import type { ModelPage } from '../../search/types';
+
+const TEST_ENV = {
+  OLLAMA_USER_AGENT: 'ollama-models-api/0.1 (+https://github.com/devcomfort/ollama-models)',
+  OLLAMA_ACCEPT: 'text/html,application/xhtml+xml',
+  OLLAMA_ACCEPT_LANGUAGE: 'en-US,en;q=0.9',
+};
 
 function mockFetch(html: string, status = 200) {
   return vi.fn().mockResolvedValue({
@@ -21,7 +28,7 @@ describe('scrapeModelPage', () => {
     const html = '<a href="/library/mistral:latest" class="md:hidden flex flex-col space-y-[6px] group">x</a>';
     vi.stubGlobal('fetch', mockFetch(html));
     const page: ModelPage = { http_url: 'https://ollama.com/library/mistral', model_id: 'library/mistral' };
-    const result = await scrapeModelPage(page);
+    const result = await scrapeModelPage(page, TEST_ENV);
     expect(result.page_url).toBe('https://ollama.com/library/mistral');
     expect(result.id).toBe('library/mistral');
     expect(result.tags).toEqual(['mistral:latest']);
@@ -32,7 +39,7 @@ describe('scrapeModelPage', () => {
     const html = '<a href="/RogerBen/custom-model:v1" class="md:hidden flex flex-col space-y-[6px] group">v1</a>';
     vi.stubGlobal('fetch', mockFetch(html));
     const page: ModelPage = { http_url: 'https://ollama.com/RogerBen/custom-model', model_id: 'RogerBen/custom-model' };
-    const result = await scrapeModelPage(page);
+    const result = await scrapeModelPage(page, TEST_ENV);
     expect(result.page_url).toBe('https://ollama.com/RogerBen/custom-model');
     expect(result.id).toBe('RogerBen/custom-model');
     expect(result.tags).toEqual(['RogerBen/custom-model:v1']);
@@ -43,9 +50,10 @@ describe('scrapeModelPage', () => {
     const html = '<div>No tags</div>';
     vi.stubGlobal('fetch', mockFetch(html));
     const page: ModelPage = { http_url: 'https://ollama.com/library/unknown-model', model_id: 'library/unknown-model' };
-    await expect(scrapeModelPage(page)).rejects.toThrow(
+    await expect(scrapeModelPage(page, TEST_ENV)).rejects.toThrow(
       "selector 'a[class*=\"flex flex-col\"]' may no longer match",
     );
+    await expect(scrapeModelPage(page, TEST_ENV)).rejects.toBeInstanceOf(ParseError);
   });
 
   it('deduplicates pull-ready tag IDs', async () => {
@@ -56,13 +64,14 @@ describe('scrapeModelPage', () => {
     `;
     vi.stubGlobal('fetch', mockFetch(html));
     const page: ModelPage = { http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' };
-    const { tags } = await scrapeModelPage(page);
+    const { tags } = await scrapeModelPage(page, TEST_ENV);
     expect(tags).toEqual(['qwen3:latest', 'qwen3:4b']);
   });
 
   it('throws when Ollama returns a non-2xx status', async () => {
     vi.stubGlobal('fetch', mockFetch('', 404));
     const page: ModelPage = { http_url: 'https://ollama.com/library/nonexistent', model_id: 'library/nonexistent' };
-    await expect(scrapeModelPage(page)).rejects.toThrow('HTTP 404');
+    await expect(scrapeModelPage(page, TEST_ENV)).rejects.toThrow('HTTP 404');
+    await expect(scrapeModelPage(page, TEST_ENV)).rejects.toBeInstanceOf(UpstreamError);
   });
 });

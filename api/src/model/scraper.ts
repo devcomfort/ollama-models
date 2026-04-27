@@ -1,8 +1,13 @@
 import { parse } from 'node-html-parser';
-import { assert } from 'es-toolkit/util';
-import { FETCH_HEADERS } from '../constants';
+import { UpstreamError, ParseError } from '../errors';
 import type { ModelPage } from '../search/types';
 import type { ModelTags } from './types';
+
+interface Env {
+  OLLAMA_USER_AGENT: string;
+  OLLAMA_ACCEPT: string;
+  OLLAMA_ACCEPT_LANGUAGE: string;
+}
 
 /**
  * Fetches a model's `/tags` page and returns all available pull-ready
@@ -20,11 +25,11 @@ import type { ModelTags } from './types';
  *   has no `latest` tag).
  * @returns 모델 페이지 URL, 모델 ID, pull 가능 태그 식별자, 기본 태그(모델에
  *   `latest` 태그가 없으면 `null`)를 포함한 {@link ModelTags}.
- * @throws {Error} When Ollama returns a non-2xx HTTP status.
- * @throws {Error} Ollama가 2xx가 아닌 HTTP 상태를 반환할 때.
- * @throws {Error} When the CSS selector matches zero tag cards, indicating an
+ * @throws {UpstreamError} When Ollama returns a non-2xx HTTP status.
+ * @throws {UpstreamError} Ollama가 2xx가 아닌 HTTP 상태를 반환할 때.
+ * @throws {ParseError} When the CSS selector matches zero tag cards, indicating an
  *   HTML structure change on Ollama's side.
- * @throws {Error} CSS 선택자가 태그 카드를 찾지 못해 Ollama 측의 HTML 구조 변경을
+ * @throws {ParseError} CSS 선택자가 태그 카드를 찾지 못해 Ollama 측의 HTML 구조 변경을
  *   나타낼 때.
  * @example
  * ```typescript
@@ -35,14 +40,20 @@ import type { ModelTags } from './types';
  * // a.default_tag → 'qwen3:latest'
  * ```
  */
-export async function scrapeModelPage(page: ModelPage): Promise<ModelTags> {
+export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelTags> {
   // === Request ===
 
   const tagsUrl = `${page.http_url}/tags`;
 
-  const res = await fetch(tagsUrl, { headers: FETCH_HEADERS });
+  const res = await fetch(tagsUrl, {
+    headers: {
+      'User-Agent': env.OLLAMA_USER_AGENT,
+      Accept: env.OLLAMA_ACCEPT,
+      'Accept-Language': env.OLLAMA_ACCEPT_LANGUAGE,
+    },
+  });
   if (!res.ok) {
-    throw new Error(`Ollama returned HTTP ${res.status} for ${tagsUrl}`);
+    throw new UpstreamError(`Ollama returned HTTP ${res.status} for ${tagsUrl}`, res.status);
   }
 
   // === Parsing ===
@@ -68,10 +79,12 @@ export async function scrapeModelPage(page: ModelPage): Promise<ModelTags> {
 
   // === Return ===
 
-  assert(tags.length > 0,
-    'Scraper: no tag cards found on model page. ' +
-    "The selector 'a[class*=\"flex flex-col\"]' may no longer match — Ollama's HTML structure may have changed.",
-  );
+  if (tags.length === 0) {
+    throw new ParseError(
+      'Scraper: no tag cards found on model page. ' +
+      "The selector 'a[class*=\"flex flex-col\"]' may no longer match — Ollama's HTML structure may have changed.",
+    );
+  }
 
   return {
     page_url: page.http_url,

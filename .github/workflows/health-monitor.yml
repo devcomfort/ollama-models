@@ -1,0 +1,82 @@
+name: Health Monitor
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Force trigger auto-heal regardless of health status'
+        type: boolean
+        default: false
+
+concurrency:
+  group: health-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe /health (3 attempts, 5s apart, only on structure_change)
+        id: probe
+        env:
+          API_URL: https://ollama-models-api.devcomfort.workers.dev
+        run: |
+          set -uo pipefail
+
+          # test_mode: skip health probes and force chain execution for debugging
+          if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
+            echo "TEST MODE: skipping health probes, forcing trigger=true"
+            echo "trigger=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          probe() {
+            local body
+            body=$(curl -fsS --max-time 15 "$API_URL/health" 2>/dev/null || echo '{"failure_kind":"api_unreachable"}')
+            echo "$body" | jq -r '.failure_kind // "null"'
+          }
+
+          attempt1=$(probe)
+          echo "attempt1=$attempt1"
+
+          if [ "$attempt1" != "structure_change" ]; then
+            echo "First probe returned: $attempt1 — not a structure change. Exiting."
+            echo "trigger=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "First probe detected structure_change. Re-checking 2 more times (5s apart)..."
+          sleep 5
+          attempt2=$(probe)
+          echo "attempt2=$attempt2"
+
+          if [ "$attempt2" != "structure_change" ]; then
+            echo "Second probe returned: $attempt2 — transient. Exiting."
+            echo "trigger=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          sleep 5
+          attempt3=$(probe)
+          echo "attempt3=$attempt3"
+
+          if [ "$attempt3" != "structure_change" ]; then
+            echo "Third probe returned: $attempt3 — transient. Exiting."
+            echo "trigger=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "All 3 attempts returned structure_change. Triggering auto-heal."
+          echo "trigger=true" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger auto-heal
+        if: steps.probe.outputs.trigger == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/dispatches \
+            -f event_type=scraper_broken \
+            -f 'client_payload[detected_at]=${{ github.event.repository.updated_at }}' \
+            -f 'client_payload[run_url]=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'

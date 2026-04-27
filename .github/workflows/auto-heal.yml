@@ -1,0 +1,48 @@
+name: Auto-Heal Scrapers
+
+on:
+  repository_dispatch:
+    types: [scraper_broken]
+  workflow_dispatch:
+
+concurrency:
+  group: auto-heal
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  heal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # OpenCode Go subscription provides DeepSeek V4 Pro via OPENCODE_API_KEY.
+      # If the model ID doesn't resolve, try these alternatives:
+      #   opencode-go/deepseek-v4-pro  (explicit Go provider)
+      #   deepseek/deepseek-v4-pro     (direct DeepSeek, needs DEEPSEEK_API_KEY)
+      - name: Run OpenCode to patch scrapers
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/deepseek-v4-pro
+          prompt: |
+            ollama.com changed its HTML structure and our scrapers can no longer parse it.
+
+            Detection details:
+            - Detected at: ${{ github.event.client_payload.detected_at }}
+            - Triggering run: ${{ github.event.client_payload.run_url }}
+
+            Your task:
+            1. Visit https://ollama.com/search?q=qwen and inspect the model card HTML
+            2. Visit https://ollama.com/library/qwen3/tags and inspect the tag card HTML
+            3. Update CSS selectors in:
+               - api/src/search/scraper.ts (current: 'a.group.w-full')
+               - api/src/model/scraper.ts (current: 'a[class*="flex flex-col"]')
+            4. Run `pnpm test:api` to verify (note: unit tests use mocked HTML; you may need to update fixtures too)
+            5. Open a PR with label `auto-heal` and `attempt-1`
+            6. DO NOT auto-merge. A human must review and merge.

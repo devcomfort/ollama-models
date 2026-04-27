@@ -5,8 +5,8 @@ compatibility_date = "2024-11-01"
 # Uncomment and fill in your account_id before deploying:
 account_id = "8e04cab5daaf42d690fce67e4dca6d78"
 
-# Scheduled health check — runs every hour
-# To add a webhook alert on failure, set the secret:
-#   wrangler secret put ALERT_WEBHOOK_URL
-[triggers]
-crons = ["0 * * * *"]
+[vars]
+OLLAMA_BASE = "https://ollama.com"
+OLLAMA_USER_AGENT = "ollama-models-api/0.1 (+https://github.com/devcomfort/ollama-models)"
+OLLAMA_ACCEPT = "text/html,application/xhtml+xml"
+OLLAMA_ACCEPT_LANGUAGE = "en-US,en;q=0.9"
