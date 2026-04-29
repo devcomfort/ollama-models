@@ -58,16 +58,26 @@ export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelT
 
   // === Parsing ===
 
-  // Tag card links are identified by their "flex flex-col" layout class,
-  // which is unique to tag cards and avoids selecting duplicate text links.
-  // The href (e.g. "/library/qwen3:latest") is stripped of its leading slash
-  // and the `library/` prefix so official models produce a pull-ready
-  // identifier like "qwen3:latest". Community model hrefs (e.g.
-  // "/alibayram/smollm3:latest") keep their username prefix.
+  // Tag card links are identified by their href pattern which always
+  // starts with "/" and contains ":" (e.g. "/library/qwen3:latest",
+  // "/alibayram/smollm3:latest"). This is the most stable attribute
+  // across both mobile and desktop renderings of the tag table.
+  // The href is stripped of its leading slash and the `library/` prefix
+  // so official models produce a pull-ready identifier like "qwen3:latest".
+  // Community model hrefs (e.g. "/alibayram/smollm3:latest") keep their
+  // username prefix.
+  //
+  // 태그 카드 링크는 항상 "/"로 시작하고 ":"를 포함하는 href 패턴으로
+  // 식별된다(예: "/library/qwen3:latest", "/alibayram/smollm3:latest").
+  // 이는 태그 테이블의 모바일 및 데스크탑 렌더링 모두에서 가장 안정적인 속성이다.
+  // href에서 선행 슬래시와 `library/` 접두사를 제거하여 공식 모델은
+  // "qwen3:latest"와 같은 pull-ready 식별자를 생성한다.
+  // 커뮤니티 모델 href(예: "/alibayram/smollm3:latest")는
+  // 사용자명 접두사를 유지한다.
   const root = parse(await res.text());
   const tags: string[] = [];
 
-  for (const el of root.querySelectorAll('a[class*="flex flex-col"]')) {
+  for (const el of root.querySelectorAll('a[href^="/"][href*=":"]')) {
     const href = el.getAttribute('href');
     if (href) {
       const pullId = href
@@ -82,7 +92,7 @@ export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelT
   if (tags.length === 0) {
     throw new ParseError(
       'Scraper: no tag cards found on model page. ' +
-      "The selector 'a[class*=\"flex flex-col\"]' may no longer match — Ollama's HTML structure may have changed.",
+      "The selector 'a[href^=\"/\"][href*=\":\"]' may no longer match — Ollama's HTML structure may have changed.",
     );
   }
 

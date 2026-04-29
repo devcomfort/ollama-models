@@ -255,7 +255,7 @@ describe('GET /health', () => {
   it('returns 503 and ok:false when the model scraper fails', async () => {
     mockSearch.mockResolvedValue([{ http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' }]);
     mockModel.mockRejectedValue(
-      new Error("selector 'a[class*=\"flex flex-col\"]' may no longer match"),
+      new Error("selector 'a[href^=\"/\"][href*=\":\"]' may no longer match"),
     );
 
     const res = await app.request('/health', undefined, TEST_ENV);
