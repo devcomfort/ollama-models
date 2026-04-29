@@ -1,0 +1,171 @@
+---
+title: API Endpoints
+description: Complete reference for GET /search, GET /model, and GET /health endpoints.
+---
+
+**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+
+All endpoints return `application/json`.
+
+---
+
+## GET /search
+
+Returns model pages discovered from the Ollama search results.
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | `string` | `""` | Search keyword (max 200 characters). Empty string lists all models. |
+| `page` | `string` | `"1"` | Page number, 1-based. |
+
+### Example Request
+
+```bash
+curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen3&page=1"
+```
+
+### Response Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pages` | `ModelPage[]` | Array of model pages matching the query. |
+| `page_range` | `number \| { from: number, to: number }` | Single page number or inclusive range when multiple result pages exist. |
+| `keyword` | `string` | The search keyword that was used. |
+
+#### ModelPage
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `http_url` | `string` | Absolute URL of the model page on ollama.com. |
+| `model_id` | `string` | Model identifier in `library/{name}` or `{username}/{name}` format. |
+
+### Example Response
+
+```json
+{
+  "pages": [
+    { "http_url": "https://ollama.com/library/qwen3", "model_id": "library/qwen3" },
+    { "http_url": "https://ollama.com/library/qwen3-coder", "model_id": "library/qwen3-coder" }
+  ],
+  "page_range": 1,
+  "keyword": "qwen3"
+}
+```
+
+---
+
+## GET /model
+
+Returns all available tags (weights) for a specific model.
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | `string` | Yes | Model identifier. Accepts `library/qwen3`, `{username}/{name}`, bare `qwen3`, or a full URL. Max 128 characters. |
+
+### Example Request
+
+```bash
+curl "https://ollama-models-api.devcomfort.workers.dev/model?name=library/qwen3"
+```
+
+### Response Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `page_url` | `string` | Canonical URL of the model's tags page. |
+| `id` | `string` | Pull-ready model ID (no `library/` prefix for official models). |
+| `tags` | `string[]` | All available tags for this model. |
+| `default_tag` | `string \| null` | The default tag (`latest`) if present, otherwise `null`. |
+
+### Example Response
+
+```json
+{
+  "page_url": "https://ollama.com/library/qwen3/tags",
+  "id": "qwen3",
+  "tags": ["qwen3:latest", "qwen3:4b", "qwen3:8b"],
+  "default_tag": "qwen3:latest"
+}
+```
+
+---
+
+## GET /health
+
+Runs live probes against both scrapers (search and model) and returns their status. Not cached.
+
+### Example Request
+
+```bash
+curl "https://ollama-models-api.devcomfort.workers.dev/health"
+```
+
+### Response Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | `boolean` | `true` only when every individual check passed. |
+| `timestamp` | `string` | ISO 8601 timestamp of when the health check ran. |
+| `checks` | `object` | Per-scraper probe results. |
+| `checks.search` | `CheckResult` | Search scraper probe result. |
+| `checks.model` | `CheckResult` | Model scraper probe result. |
+
+#### CheckResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | `boolean` | `true` when the probe returned at least one result. |
+| `count` | `number` (optional) | Number of results returned when the check passed. |
+| `error` | `string` (optional) | Error message when the check failed. |
+
+### Example Response
+
+```json
+{
+  "ok": true,
+  "timestamp": "2026-04-08T12:00:00.000Z",
+  "checks": {
+    "search": { "ok": true, "count": 10 },
+    "model": { "ok": true, "count": 5 }
+  }
+}
+```
+
+---
+
+## Error Responses
+
+All errors return a structured JSON body with HTTP status codes.
+
+### Error Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `error.code` | `string` | Machine-readable error code. |
+| `error.message` | `string` | Human-readable error summary. |
+| `error.detail` | `string` (optional) | Additional debugging context. |
+
+### Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `INVALID_PARAMETER` | 400 | Query parameter validation failed (e.g. `q` exceeds 200 chars, missing `name`). |
+| `SCRAPE_PARSE_ERROR` | 502 | Failed to parse scraped HTML (e.g. CSS selector returned 0 elements). |
+| `SCRAPE_UPSTREAM_ERROR` | 502 | Upstream request to ollama.com failed. |
+| `SCRAPE_NO_RESULTS` | 502 | Scraping succeeded but returned no results. |
+| `INTERNAL_ERROR` | 500 | Unexpected server error. |
+
+### Example Error Response
+
+```json
+{
+  "error": {
+    "code": "INVALID_PARAMETER",
+    "message": "Query parameter 'q' exceeds maximum length of 200 characters"
+  }
+}
+```

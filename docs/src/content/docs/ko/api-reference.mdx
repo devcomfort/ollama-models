@@ -1,0 +1,171 @@
+---
+title: API 엔드포인트
+description: GET /search, GET /model, GET /health 엔드포인트의 완전한 레퍼런스.
+---
+
+**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+
+모든 엔드포인트는 `application/json`을 반환합니다.
+
+---
+
+## GET /search
+
+Ollama 검색 결과에서 발견된 모델 페이지를 반환합니다.
+
+### 쿼리 파라미터
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|-----------|------|---------|-------------|
+| `q` | `string` | `""` | 검색 키워드 (최대 200자). 빈 문자열이면 모든 모델을 목록 조회합니다. |
+| `page` | `string` | `"1"` | 페이지 번호, 1부터 시작. |
+
+### 요청 예시
+
+```bash
+curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen3&page=1"
+```
+
+### 응답 스키마
+
+| 필드 | 타입 | 설명 |
+|-------|------|-------------|
+| `pages` | `ModelPage[]` | 쿼리와 일치하는 모델 페이지 배열. |
+| `page_range` | `number \| { from: number, to: number }` | 단일 페이지 번호 또는 여러 결과 페이지가 있을 때 범위. |
+| `keyword` | `string` | 사용된 검색 키워드. |
+
+#### ModelPage
+
+| 필드 | 타입 | 설명 |
+|-------|------|-------------|
+| `http_url` | `string` | ollama.com의 모델 페이지 절대 URL. |
+| `model_id` | `string` | `library/{name}` 또는 `{username}/{name}` 형식의 모델 식별자. |
+
+### 응답 예시
+
+```json
+{
+  "pages": [
+    { "http_url": "https://ollama.com/library/qwen3", "model_id": "library/qwen3" },
+    { "http_url": "https://ollama.com/library/qwen3-coder", "model_id": "library/qwen3-coder" }
+  ],
+  "page_range": 1,
+  "keyword": "qwen3"
+}
+```
+
+---
+
+## GET /model
+
+특정 모델의 사용 가능한 모든 태그(가중치)를 반환합니다.
+
+### 쿼리 파라미터
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|-----------|------|----------|-------------|
+| `name` | `string` | 예 | 모델 식별자. `library/qwen3`, `{username}/{name}`, 단순 `qwen3`, 또는 전체 URL을 허용합니다. 최대 128자. |
+
+### 요청 예시
+
+```bash
+curl "https://ollama-models-api.devcomfort.workers.dev/model?name=library/qwen3"
+```
+
+### 응답 스키마
+
+| 필드 | 타입 | 설명 |
+|-------|------|-------------|
+| `page_url` | `string` | 모델 태그 페이지의 정규 URL. |
+| `id` | `string` | pull 가능한 모델 ID (공식 모델은 `library/` 접두사 없음). |
+| `tags` | `string[]` | 이 모델의 모든 사용 가능한 태그. |
+| `default_tag` | `string \| null` | `latest` 태그가 있으면 해당 태그, 없으면 `null`. |
+
+### 응답 예시
+
+```json
+{
+  "page_url": "https://ollama.com/library/qwen3/tags",
+  "id": "qwen3",
+  "tags": ["qwen3:latest", "qwen3:4b", "qwen3:8b"],
+  "default_tag": "qwen3:latest"
+}
+```
+
+---
+
+## GET /health
+
+두 스크래퍼(검색, 모델)에 대한 실시간 프로브를 실행하고 상태를 반환합니다. 캐시되지 않습니다.
+
+### 요청 예시
+
+```bash
+curl "https://ollama-models-api.devcomfort.workers.dev/health"
+```
+
+### 응답 스키마
+
+| 필드 | 타입 | 설명 |
+|-------|------|-------------|
+| `ok` | `boolean` | 모든 개별 체크가 통과했을 때만 `true`. |
+| `timestamp` | `string` | 헬스 체크가 실행된 시점의 ISO 8601 타임스탬프. |
+| `checks` | `object` | 스크래퍼별 프로브 결과. |
+| `checks.search` | `CheckResult` | 검색 스크래퍼 프로브 결과. |
+| `checks.model` | `CheckResult` | 모델 스크래퍼 프로브 결과. |
+
+#### CheckResult
+
+| 필드 | 타입 | 설명 |
+|-------|------|-------------|
+| `ok` | `boolean` | 프로브가 최소 하나의 결과를 반환했을 때 `true`. |
+| `count` | `number` (선택) | 체크 통과 시 반환된 결과 수. |
+| `error` | `string` (선택) | 체크 실패 시 에러 메시지. |
+
+### 응답 예시
+
+```json
+{
+  "ok": true,
+  "timestamp": "2026-04-08T12:00:00.000Z",
+  "checks": {
+    "search": { "ok": true, "count": 10 },
+    "model": { "ok": true, "count": 5 }
+  }
+}
+```
+
+---
+
+## 에러 응답
+
+모든 에러는 구조화된 JSON 본문과 HTTP 상태 코드를 반환합니다.
+
+### 에러 스키마
+
+| 필드 | 타입 | 설명 |
+|-------|------|-------------|
+| `error.code` | `string` | 기계 판독 가능한 에러 코드. |
+| `error.message` | `string` | 사람이 읽을 수 있는 에러 요약. |
+| `error.detail` | `string` (선택) | 디버깅을 위한 추가 컨텍스트. |
+
+### 에러 코드
+
+| 코드 | HTTP 상태 | 설명 |
+|------|-------------|-------------|
+| `INVALID_PARAMETER` | 400 | 쿼리 파라미터 검증 실패 (예: `q`가 200자 초과, `name` 누락). |
+| `SCRAPE_PARSE_ERROR` | 502 | 스크래핑된 HTML 파싱 실패 (예: CSS 선택자가 0개 요소 반환). |
+| `SCRAPE_UPSTREAM_ERROR` | 502 | ollama.com으로의 업스트림 요청 실패. |
+| `SCRAPE_NO_RESULTS` | 502 | 스크래핑은 성공했지만 결과가 없음. |
+| `INTERNAL_ERROR` | 500 | 예기치 않은 서버 에러. |
+
+### 에러 응답 예시
+
+```json
+{
+  "error": {
+    "code": "INVALID_PARAMETER",
+    "message": "Query parameter 'q' exceeds maximum length of 200 characters"
+  }
+}
+```

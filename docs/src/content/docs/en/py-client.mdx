@@ -1,0 +1,113 @@
+---
+title: Python Client
+description: Installation, sync/async usage, and type reference for ollama-models (PyPI).
+---
+
+The `ollama-models` package on PyPI provides a Python client with both synchronous and asynchronous APIs for the ollama-models Workers API.
+
+## Installation
+
+```bash
+pip install ollama-models
+```
+
+Requires Python 3.8+.
+
+## Usage
+
+### Basic Setup
+
+```python
+from ollama_models import OllamaModelsClient
+
+# Uses the official hosted API by default
+client = OllamaModelsClient()
+
+# Or point to a self-hosted instance
+# client = OllamaModelsClient("https://your-instance.workers.dev")
+```
+
+### Sync API
+
+```python
+# Search for models
+result = client.search("qwen3", page=1)
+for page in result.pages:
+    print(page.http_url)
+    print(page.model_id)
+
+# Get all tags for a model
+model = client.get_model("library/qwen3")
+print(model.id)            # 'qwen3'
+print(model.default_tag)   # 'qwen3:latest'
+
+for tag in model.tags:
+    print(tag)  # 'qwen3:latest', 'qwen3:4b', ...
+```
+
+### Async API
+
+```python
+import asyncio
+
+async def main():
+    result = await client.search_async("qwen3")
+    model = await client.get_model_async("library/qwen3")
+
+    for page in result.pages:
+        print(page.http_url)
+
+    for tag in model.tags:
+        print(tag)
+
+asyncio.run(main())
+```
+
+## Constructor
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `base_url` | `Optional[str]` | `https://ollama-models-api.devcomfort.workers.dev` | Base URL of the API. Trailing slashes are stripped automatically. |
+
+## Methods
+
+### `search(keyword: str = "", page: int = 1) -> SearchResult`
+
+Synchronous search.
+
+### `search_async(keyword: str = "", page: int = 1) -> SearchResult`
+
+Asynchronous search.
+
+### `get_model(name: str) -> ModelTags`
+
+Synchronous model tag retrieval.
+
+### `get_model_async(name: str) -> ModelTags`
+
+Asynchronous model tag retrieval.
+
+## Type Definitions
+
+```python
+from dataclasses import dataclass
+from typing import List, Optional
+
+@dataclass
+class ModelPage:
+    http_url: str
+    model_id: str
+
+@dataclass
+class SearchResult:
+    pages: List[ModelPage]
+    page_range: int  # or {from, to} dict for multi-page
+    keyword: str
+
+@dataclass
+class ModelTags:
+    page_url: str
+    id: str
+    tags: List[str]
+    default_tag: Optional[str]
+```

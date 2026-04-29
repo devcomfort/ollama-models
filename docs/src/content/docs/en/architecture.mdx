@@ -1,0 +1,80 @@
+---
+title: Architecture
+description: Cache strategy, error handling, alert system, and the three-layer testing design.
+---
+
+## Cache Strategy
+
+The API uses the Cloudflare Workers Cache API with time-based invalidation. Cache keys are the full request URL.
+
+| Endpoint | TTL | Rationale |
+|----------|-----|-----------|
+| `GET /search` | 60s | New models surface quickly; short TTL keeps results fresh. |
+| `GET /model` | 300s | Tag changes less frequently; longer TTL reduces upstream load. |
+| `GET /health` | Not cached | Must always reflect live scraper state. |
+
+Cache invalidation is purely time-based — no manual invalidation mechanism exists.
+
+## Error Handling Flow
+
+1. **Scraper layer** — `scrapeSearchPage()` and `scrapeModelPage()` throw `Error` on HTTP failures or CSS selector mismatches.
+2. **Assertion layer** — `assert()` from `es-toolkit/util` validates post-parse results (e.g., selector returned 0 elements).
+3. **Route handler layer** — `try/catch` wraps each handler. Scraper errors map to structured `ErrorResponse` with appropriate HTTP status codes.
+4. **Alert layer** — On scraper failure, `AlertService` fires webhook notifications via `Promise.allSettled`. Alert failures are silently swallowed.
+
+### Error Codes
+
+| Code | HTTP Status | Trigger |
+|------|-------------|---------|
+| `INVALID_PARAMETER` | 400 | Query parameter validation failed. |
+| `SCRAPE_PARSE_ERROR` | 502 | HTML parsing failed (selector returned 0 elements). |
+| `SCRAPE_UPSTREAM_ERROR` | 502 | Request to ollama.com failed. |
+| `SCRAPE_NO_RESULTS` | 502 | Scrape succeeded but returned no data. |
+| `INTERNAL_ERROR` | 500 | Unexpected server error. |
+
+## Alert System
+
+`AlertService` dispatches alerts to all configured channels in parallel via `Promise.allSettled`:
+
+- **SlackChannel** — Slack webhook with mrkdwn formatting.
+- **DiscordChannel** — Discord embed with severity-colored banners.
+- **EmailChannel** — Generic email webhook.
+
+Webhook URLs are stored as Cloudflare Workers secrets (set via `wrangler secret put`), not in `wrangler.toml`.
+
+Alert delivery is fire-and-forget — failures never interfere with the request lifecycle.
+
+## Three-Layer Testing Strategy
+
+| Layer | Scope | Runner | Count | Purpose |
+|-------|-------|--------|-------|---------|
+| **Unit** | Individual functions/modules | Vitest (Node.js) | 72 | Verify isolated logic. |
+| **Integration** | Full request/response chain | In-process Hono or subprocess | 39 | Verify serialization, routing, and schema alignment. |
+| **E2E** | Deployed live API | Bash (`curl` + `python3`) | 23 | Verify real-world behavior against production. |
+
+### Golden Rule: No Harmful Mocks
+
+Never reimplement route handlers, middleware, or validation logic in a mock server. This creates a parallel code path that silently drifts from production.
+
+**Correct approach:** Import the actual production `app` and serve it via `@hono/node-server`. Stub only external dependencies at the lowest layer:
+- `fetch()` calls to third-party APIs — cache responses in memory.
+- Cloudflare Workers-only globals (`caches`, `ScheduledEvent`) — no-op stubs.
+
+### Why Three Layers?
+
+| Question | Answer |
+|----------|--------|
+| Why not E2E-only? | Slow, flaky (depends on ollama.com), hard to debug. |
+| Why not unit-only? | Misses serialization bugs, schema drift, routing issues. |
+| Why mock scrapers in integration? | ollama.com HTML changes should not break client tests. |
+| Why real scrapers in E2E? | Must detect when ollama.com changes their DOM. |
+| Why bash for E2E? | Zero dependencies — works in any CI image with `curl` + `python3`. |
+
+## CI/CD Pipeline
+
+```
+Pull Request → ci.yml (unit + integration) → merge
+Main push    → deploy.yml (deploy-api → health-check → e2e → publish)
+```
+
+The `deploy.yml` workflow only runs when code files change (`paths` filter excludes `*.md` and `openapi.json`).

@@ -1,0 +1,136 @@
+---
+title: "TypeScript Client"
+description: "Installation, usage, and type reference for @devcomfort/ollama-models."
+---
+
+The `@devcomfort/ollama-models` package provides a typed, promise-based HTTP client for the ollama-models Workers API.
+
+## Installation
+
+```bash
+npm install @devcomfort/ollama-models
+# or
+pnpm add @devcomfort/ollama-models
+# or
+yarn add @devcomfort/ollama-models
+```
+
+## Usage
+
+### Basic Setup
+
+```typescript
+import { OllamaModelsClient } from '@devcomfort/ollama-models';
+
+// Uses the official hosted API by default
+const client = new OllamaModelsClient();
+
+// Or point to a self-hosted instance
+// const client = new OllamaModelsClient('https://your-instance.workers.dev');
+```
+
+### Search Models
+
+```typescript
+const result = await client.search('qwen3', 1);
+
+for (const page of result.pages) {
+  console.log(page.http_url);
+  console.log(page.model_id);
+}
+
+console.log(result.keyword);     // 'qwen3'
+console.log(result.page_range);  // 1 or { from: 1, to: 3 }
+```
+
+### Get Model Tags
+
+```typescript
+const model = await client.getModel('library/qwen3');
+
+console.log(model.id);           // 'qwen3'
+console.log(model.default_tag);  // 'qwen3:latest'
+
+for (const tag of model.tags) {
+  console.log(tag);  // 'qwen3:latest', 'qwen3:4b', ...
+}
+```
+
+### Health Check
+
+```typescript
+const status = await client.health();
+
+if (!status.ok) {
+  console.error('Search error:', status.checks.search.error);
+  console.error('Model error:', status.checks.model.error);
+}
+```
+
+## Constructor
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `baseUrl` | `string` | `https://ollama-models-api.devcomfort.workers.dev` | Base URL of the API. Trailing slashes are stripped automatically. |
+
+## Methods
+
+### `search(keyword?, page?): Promise<SearchResult>`
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `keyword` | `string` | `""` | Search term. Empty string lists all models. |
+| `page` | `number` | `1` | 1-based page number. |
+
+**Throws:** `Error` when the API returns a non-2xx HTTP status.
+
+### `getModel(name): Promise<ModelTags>`
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `string` | Model identifier — `library/qwen3`, `User/model`, bare name, or full URL. |
+
+**Throws:** `Error` when the API returns a non-2xx HTTP status.
+
+### `health(): Promise<HealthStatus>`
+
+Runs a live health check against both scrapers.
+
+**Throws:** `Error` when the API returns a non-2xx HTTP status.
+
+## Type Definitions
+
+```typescript
+interface SearchResult {
+  pages: ModelPage[];
+  page_range: number | { from: number; to: number };
+  keyword: string;
+}
+
+interface ModelPage {
+  http_url: string;
+  model_id: string;
+}
+
+interface ModelTags {
+  page_url: string;
+  id: string;
+  tags: string[];
+  default_tag: string | null;
+}
+
+interface HealthStatus {
+  ok: boolean;
+  timestamp: string;
+  checks: {
+    search: CheckResult;
+    model: CheckResult;
+  };
+}
+
+interface CheckResult {
+  ok: boolean;
+  count?: number;
+  error?: string;
+}
+```

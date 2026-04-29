@@ -1,0 +1,156 @@
+---
+title: Auto-Heal 파이프라인
+description: 상태 감지부터 OpenCode AI 패치 PR까지 — 스크래퍼 자동 복구 파이프라인.
+---
+
+ollama.com의 HTML 구조가 변경되면 스크래퍼가 깨진다. auto-heal 파이프라인은 실패를 감지하고, 근본 원인을 분류하고, AI 에이전트를 투입해 셀렉터를 수정한 후 PR을 생성한다. 최종 머지 외에는 사람의 개입이 필요하지 않다.
+
+## 파이프라인 개요
+
+```
+Cron */5분 → Health Monitor → /health 프로브 (3회, 5초 간격)
+                                    │
+                       structure_change 감지?
+                                    │
+                       ┌────────────┴────────────┐
+                       │ YES                      │ NO → 스킵
+                       ▼                          │
+                  Triage Gate                     │
+                  (중복 방지, 시도 횟수)            │
+                       │                          │
+                       ▼                          │
+                  Auto-Heal Workflow              │
+                  (OpenCode → fix PR)             │
+                       │                          │
+                  ┌────┴────┐                      │
+                  │ 1-3회:   │                      │
+                  │ PR 생성  │                      │
+                  │ 4회+:    │                      │
+                  │ 사람 호출 │                      │
+                  └─────────┘                      │
+```
+
+## 실패 분류 (Failure Classification)
+
+`/health` 엔드포인트는 스크래퍼 실패 시 HTTP 503과 함께 구조화된 JSON 본문을 반환한다. `failure_kind` 필드가 원인을 구분한다:
+
+| `failure_kind` | 의미 | 파이프라인 반응 |
+|---|---|---|
+| `structure_change` | 셀렉터 불일치 (HTML 변경) | auto-heal 트리거 |
+| `upstream_down` | ollama.com 접근 불가 | 스킵 (다음 cron에서 재시도) |
+| `network_error` | 일시적 네트워크 오류 | 스킵 |
+| `null` | 모든 체크 통과 | 스킵 |
+
+`structure_change`만 파이프라인을 트리거한다. 프로브는 3회 연속 확인(5초 간격)하며, 3회 모두 일치해야 dispatch한다.
+
+헬스 모니터는 의도적으로 **`curl -f`를 사용하지 않는다**. `/health`는 `ok: false`일 때 HTTP 503을 반환하는데, `-f` 플래그가 있으면 응답 본문이 폐기되어 `api_unreachable`과 `structure_change`를 구분할 수 없다.
+
+## Triage Gate
+
+OpenCode를 실행하기 전, triage 단계에서 중복을 확인하고 시도 횟수를 추적한다:
+
+- **중복 방지**: 열린 `auto-heal` PR이나 `needs-human` 이슈가 이미 존재하면 건너뛴다.
+- **시도 횟수**: 지난 24시간 동안 머지되지 않은 `auto-heal` PR의 개수를 센다. 머지된 PR은 성공한 이전 수정으로 간주하여 제외한다.
+- **에스컬레이션**: 시도 횟수 ≥4이면 OpenCode를 실행하는 대신 `needs-human` 이슈를 생성한다.
+- **레이스 컨디션 방어**: health-monitor와 auto-heal 양쪽에서 중복을 체크한다. 두 cron 실행이 5분 간격으로 겹쳐도 두 번째는 정상 종료된다.
+
+## Heal 워크플로우
+
+heal job은 대상 브랜치를 체크아웃하고 의존성을 설치한 후 OpenCode를 실행한다:
+
+- **모델**: `opencode-go/deepseek-v4-pro`
+- **권한**: `contents: write`, `pull-requests: write`, `issues: write`
+- **토큰**: `GITHUB_TOKEN`을 환경 변수로 전달
+
+OpenCode는 다음 정보를 포함한 프롬프트를 받는다:
+- 감지 내용 (어떤 스크래퍼에서 `structure_change`가 발생했는지 `/health` 응답)
+- 트리거한 run URL과 감지 시간
+- 현재 시도 횟수
+- ollama.com 방문, HTML 분석, 셀렉터 수정, 테스트 실행, PR 생성 지시
+
+### OpenCode가 하는 일
+
+1. `ollama.com/search?q=qwen`과 `ollama.com/library/qwen3/tags`의 실시간 HTML을 가져온다
+2. 코드베이스의 현재 CSS 셀렉터를 검사한다
+3. 더 이상 일치하지 않는 셀렉터를 식별한다
+4. search와 model 스크래퍼 모두 수정한다
+5. `pnpm test:api`를 실행하여 79개 테스트가 전부 통과하는지 확인한다
+6. 브랜치를 생성하고, 수정 사항을 커밋하고, `auto-heal` + `attempt-N` 라벨이 달린 PR을 생성한다
+
+### PR 특징
+
+- **자동 머지 안 됨** — 사람이 리뷰하고 머지해야 함.
+- `auto-heal`(금색) + `attempt-N`(녹색, N ∈ {1,2,3}) 라벨.
+- 이전 셀렉터와 새 셀렉터의 비교 테이블, 테스트 결과 포함.
+- 추적성을 위해 트리거한 health-monitor run으로 연결되는 링크 포함.
+
+## 시도 횟수와 에스컬레이션
+
+| 시도 | 액션 |
+|---|---|
+| 1-3 | OpenCode가 수정 PR 생성. 사람이 리뷰 후 머지. |
+| ≥4 | `needs-human` 이슈 생성 (라벨: `needs-human`). auto-heal 중지. |
+
+24시간 시도 윈도우는 오래된 PR이 새 인시던트의 시도 횟수에 포함되는 것을 방지한다. 윈도우 내에 머지된 수정 PR은 카운터를 리셋한다.
+
+## Staging E2E 시뮬레이션
+
+스테이징 환경(`ollama-models-api-staging.devcomfort.workers.dev`)을 통해 프로덕션에 영향을 주지 않고 auto-heal 파이프라인의 종단 간 테스트가 가능하다.
+
+### 테스트 구성
+
+1. 의도적으로 깨진 셀렉터(예: `a.group.w-full.border-b` — `border-b` 클래스는 `<a>`가 아닌 부모 `<li>`에 있으므로 0개 일치)를 포함한 테스트 브랜치를 생성한다.
+2. 깨진 코드를 staging에 배포한다.
+3. health-monitor의 `target_env` input으로 프로브 URL을 staging으로 전환한다.
+4. `target_env=staging`이면 health-monitor가 `ref=test/auto-heal-e2e`를 auto-heal에 전달하여, OpenCode가 깨진 셀렉터가 있는 브랜치를 체크아웃하게 한다.
+
+### 검증
+
+개발 과정에서 완전한 종단 간 테스트로 다음을 확인했다:
+
+- `/health`가 `failure_kind: structure_change` 반환 (HTTP 503)
+- 3회 연속 프로브가 실패 확인
+- triage gate 통과 (중복 PR 없음, 올바른 시도 횟수)
+- OpenCode가 테스트 브랜치를 체크아웃하고, 프로덕션 HTML을 분석하여 올바른 셀렉터 식별
+- `auto-heal` + `attempt-1` 라벨이 달린 PR 생성
+- 수정 브랜치에서 79개 테스트 전부 통과
+
+## 설정
+
+### Health Monitor (`health-monitor.yml`)
+
+- **Cron**: `*/5 * * * *` (5분마다)
+- **Inputs**: `test_mode` (강제 트리거), `target_env` (production/staging)
+- **Probe**: 3회 시도, 5초 간격, `structure_change`일 때만 트리거
+
+### Auto-Heal (`auto-heal.yml`)
+
+- **Trigger**: `workflow_dispatch` (health-monitor가 호출)
+- **Inputs**: `detected_at`, `run_url`, `ref` (체크아웃할 브랜치)
+- **Concurrency**: `group: auto-heal`, 진행 중 취소 안 함
+- **Timeout**: 없음 (기본 GitHub 6시간 제한)
+
+### OpenCode Action
+
+- **Action**: `anomalyco/opencode/github@latest`
+- **Model**: `opencode-go/deepseek-v4-pro`
+- **API Key**: `OPENCODE_API_KEY` (GitHub 시크릿)
+- **GitHub Token**: `GITHUB_TOKEN` (PR 생성용)
+
+## 개발 과정에서의 주요 발견
+
+### `curl -f`가 HTTP 503 응답 본문을 폐기함
+
+health-monitor가 `curl -fsS`를 사용했는데, 이는 HTTP 5xx에서 응답 본문을 폐기했다. `/health`가 `failure_kind`가 포함된 JSON 본문과 함께 503을 반환하기 때문에, 본문이 폐기되면 `structure_change`와 `api_unreachable`을 구분할 수 없었다. 해결: `-f`를 제거하고 `curl` 종료 코드로 전송 실패를 확인.
+
+### 리포지토리 수준의 PR 권한
+
+워크플로우에 `pull-requests: write`가 있어도, 리포지토리 설정에서 "Allow GitHub Actions to create and approve pull requests"가 활성화되어 있어야 한다. 이 설정이 없으면 `gh pr create`가 권한 오류로 실패한다.
+
+### OpenCode 브랜치 선택
+
+auto-heal은 기본적으로 기본 브랜치를 체크아웃한다. 의도적으로 깨진 셀렉터로 E2E 테스트를 하기 위해, 워크플로우가 특정 테스트 브랜치를 체크아웃할 수 있도록 `ref` input을 추가했다.
+
+### 기회적 개선
+
+E2E 테스트 중에 OpenCode는 원래 깨뜨린 search 스크래퍼(`a.group.w-full`)뿐만 아니라 model 스크래퍼(`a[class*="flex flex-col"]` → `a[href^="/"][href*=":"]`)도 함께 개선하여, 의도한 범위를 넘어선 robustness 향상을 이끌어냈다.

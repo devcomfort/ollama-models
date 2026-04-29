@@ -1,0 +1,156 @@
+---
+title: Auto-Heal Pipeline
+description: Automated scraper repair — from health probe to OpenCode-generated fix PRs.
+---
+
+When ollama.com changes its HTML structure, scrapers break. The auto-heal pipeline detects the failure, classifies the root cause, dispatches an AI agent to fix the selectors, and opens a pull request — all without human intervention except the final merge.
+
+## Pipeline Overview
+
+```
+Cron */5 min → Health Monitor → /health probe (3×, 5s apart)
+                                    │
+                         structure_change detected?
+                                    │
+                         ┌──────────┴──────────┐
+                         │ YES                  │ NO → skip
+                         ▼                      │
+                    Triage Gate                 │
+                    (dedup, attempt count)       │
+                         │                      │
+                         ▼                      │
+                    Auto-Heal Workflow          │
+                    (OpenCode → fix PR)         │
+                         │                      │
+                    ┌────┴────┐                  │
+                    │ attempt │                  │
+                    │ 1-3: PR │                  │
+                    │ 4+:     │                  │
+                    │ escalate│                  │
+                    └─────────┘                  │
+```
+
+## Failure Classification
+
+The `/health` endpoint returns HTTP 503 when scrapers fail, with a structured JSON body. The `failure_kind` field distinguishes causes:
+
+| `failure_kind` | Meaning | Pipeline Reaction |
+|---|---|---|
+| `structure_change` | Selector mismatch (HTML changed) | Triggers auto-heal |
+| `upstream_down` | ollama.com unreachable | Skips (retry on next cron) |
+| `network_error` | Transient fetch error | Skips |
+| `null` | All checks passing | Skips |
+
+Only `structure_change` triggers the pipeline. The probe runs 3 consecutive attempts (5 seconds apart) and requires all 3 to agree before dispatching.
+
+The health monitor intentionally **omits `curl -f`**. The `/health` endpoint returns HTTP 503 when `ok: false` — `-f` would discard the body, making `api_unreachable` indistinguishable from `structure_change`.
+
+## Triage Gate
+
+Before dispatching OpenCode, the triage step checks for duplicates and tracks attempt counts:
+
+- **Duplicate prevention**: Skips if an open `auto-heal` PR or `needs-human` issue already exists.
+- **Attempt counting**: Counts non-merged `auto-heal` PRs in the past 24 hours. Merged PRs indicate successful prior fixes and are excluded.
+- **Escalation**: Attempt ≥4 creates a `needs-human` issue instead of dispatching OpenCode.
+- **Race protection**: Both health-monitor and auto-heal check for duplicates — if two cron runs fire within 5 minutes, the second one exits cleanly.
+
+## Heal Workflow
+
+The heal job checks out the target branch, installs dependencies, and runs OpenCode with:
+
+- **Model**: `opencode-go/deepseek-v4-pro`
+- **Permissions**: `contents: write`, `pull-requests: write`, `issues: write`
+- **Token**: `GITHUB_TOKEN` passed as environment variable
+
+OpenCode receives a prompt detailing:
+- What was detected (the `/health` response showing `structure_change` on which scraper)
+- The triggering run URL and detection time
+- The current attempt number
+- Instructions to visit ollama.com, inspect HTML, update selectors, run tests, and open a PR
+
+### What OpenCode Does
+
+1. Fetches live HTML from `ollama.com/search?q=qwen` and `ollama.com/library/qwen3/tags`
+2. Inspects the CSS selectors currently in the codebase
+3. Identifies which selectors no longer match
+4. Updates both search and model scrapers with corrected selectors
+5. Runs `pnpm test:api` to verify all 79 tests pass
+6. Creates a branch, commits the fix, and opens a PR with `auto-heal` + `attempt-N` labels
+
+### PR Characteristics
+
+- **NOT auto-merged** — a human must review and merge.
+- Labeled `auto-heal` (gold) and `attempt-N` (green, where N ∈ {1,2,3}).
+- Includes a summary table of old vs. new selectors and test results.
+- Links back to the triggering health-monitor run for traceability.
+
+## Attempt Tracking and Escalation
+
+| Attempt | Action |
+|---|---|
+| 1-3 | OpenCode creates a fix PR. Human reviews and merges. |
+| ≥4 | Pipeline creates a `needs-human` issue (label: `needs-human`). Stops auto-heal. |
+
+The 24-hour attempt window prevents stale PRs from counting against new incidents. A merged fix PR within the window resets the counter.
+
+## Staging E2E Simulation
+
+A staging environment (`ollama-models-api-staging.devcomfort.workers.dev`) enables end-to-end testing of the auto-heal pipeline without affecting production.
+
+### Test Setup
+
+1. Create a test branch with an intentionally broken selector (e.g., `a.group.w-full.border-b` — the `border-b` class is on the parent `<li>`, not the `<a>`, so it matches zero elements).
+2. Deploy the broken code to staging.
+3. The health monitor's `target_env` input switches the probe URL to staging.
+4. When `target_env=staging`, the health monitor passes `ref=test/auto-heal-e2e` to auto-heal, so OpenCode checks out the branch with broken selectors.
+
+### Verification
+
+During development, a complete end-to-end test validated:
+
+- `/health` returning `failure_kind: structure_change` (HTTP 503)
+- 3 consecutive probes confirming the failure
+- Triage gate passing (no duplicate PRs, correct attempt count)
+- OpenCode checking out the test branch, inspecting production HTML, and identifying the correct selectors
+- PR creation with `auto-heal` and `attempt-1` labels
+- All 79 tests passing in the fix branch
+
+## Configuration
+
+### Health Monitor (`health-monitor.yml`)
+
+- **Cron**: `*/5 * * * *` (every 5 minutes)
+- **Inputs**: `test_mode` (force trigger), `target_env` (production/staging)
+- **Probe**: 3 attempts, 5s apart, only on `structure_change`
+
+### Auto-Heal (`auto-heal.yml`)
+
+- **Trigger**: `workflow_dispatch` (called by health monitor)
+- **Inputs**: `detected_at`, `run_url`, `ref` (branch to checkout)
+- **Concurrency**: `group: auto-heal`, no cancel-in-progress
+- **Timeout**: None (default 6h GitHub limit)
+
+### OpenCode Action
+
+- **Action**: `anomalyco/opencode/github@latest`
+- **Model**: `opencode-go/deepseek-v4-pro`
+- **API Key**: `OPENCODE_API_KEY` (GitHub secret)
+- **GitHub Token**: `GITHUB_TOKEN` (for PR creation)
+
+## Key Discoveries During Development
+
+### `curl -f` drops HTTP 503 bodies
+
+The health-monitor used `curl -fsS` which discarded the response body on HTTP 5xx. Since `/health` returns 503 with a JSON body containing `failure_kind`, dropping the body made `structure_change` indistinguishable from `api_unreachable`. Fix: remove `-f` and check `curl` exit code for transport failures.
+
+### Repo-level PR permission
+
+Even with `pull-requests: write` in the workflow, the repository setting "Allow GitHub Actions to create and approve pull requests" must be enabled. Without it, `gh pr create` fails with a permissions error.
+
+### OpenCode branch selection
+
+Auto-heal checks out the default branch by default. For e2e testing with intentionally broken selectors, a `ref` input was added so the workflow can checkout a specific test branch.
+
+### Opportunistic improvements
+
+During e2e testing, OpenCode proactively updated both the search scraper (`a.group.w-full`) and the model scraper (`a[class*="flex flex-col"]` → `a[href^="/"][href*=":"]`), improving robustness beyond the originally broken selector.

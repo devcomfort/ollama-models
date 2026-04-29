@@ -1,0 +1,68 @@
+---
+title: Introduction
+description: Overview of ollama-models — a JSON API and client SDKs for searching Ollama models and listing tags.
+---
+
+**ollama-models** provides a REST API and client SDKs for searching models and listing all available tags (weights) from the [Ollama](https://ollama.com) registry.
+
+Ollama does not expose a public API for registry search. This project scrapes SSR HTML from `ollama.com` and returns structured JSON.
+
+## Quick Start
+
+### API
+
+```bash
+# Search for models
+curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen3&page=1"
+
+# Get all tags for a model
+curl "https://ollama-models-api.devcomfort.workers.dev/model?name=library/qwen3"
+
+# Health check
+curl "https://ollama-models-api.devcomfort.workers.dev/health"
+```
+
+**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+
+### TypeScript Client
+
+```bash
+npm install @devcomfort/ollama-models
+```
+
+```typescript
+import { OllamaModelsClient } from '@devcomfort/ollama-models';
+
+const client = new OllamaModelsClient();
+const result = await client.search('qwen3', 1);
+```
+
+### Python Client
+
+```bash
+pip install ollama-models
+```
+
+```python
+from ollama_models import OllamaModelsClient
+
+client = OllamaModelsClient()
+result = client.search("qwen3", page=1)
+```
+
+## Project Structure
+
+```
+api/                      # Cloudflare Workers REST API
+packages/
+  ts-client/              # @devcomfort/ollama-models (NPM)
+  py-client/              # ollama-models (PyPI)
+```
+
+## Version
+
+Current API version: **v0.2.0**
+
+## License
+
+BSD-3-Clause

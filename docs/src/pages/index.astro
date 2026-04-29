@@ -1,0 +1,35 @@
+---
+// Redirect to the locale-appropriate docs root based on browser language.
+// Supported locales: en (default), ko.
+// Falls back to /en/ if no match is found.
+---
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ollama-models</title>
+    <script is:inline>
+      (function () {
+        var supported = ['ko', 'en'];
+        var languages = navigator.languages
+          ? Array.from(navigator.languages)
+          : [navigator.language || 'en'];
+
+        var locale = 'en';
+        for (var i = 0; i < languages.length; i++) {
+          var tag = languages[i].toLowerCase().split('-')[0];
+          if (supported.indexOf(tag) !== -1) {
+            locale = tag;
+            break;
+          }
+        }
+
+        window.location.replace('/' + locale + '/');
+      })();
+    </script>
+    <noscript>
+      <meta http-equiv="refresh" content="0; url=/en/" />
+    </noscript>
+  </head>
+  <body></body>
+</html>

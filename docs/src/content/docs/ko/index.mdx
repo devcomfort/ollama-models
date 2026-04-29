@@ -1,0 +1,68 @@
+---
+title: 소개
+description: ollama-models 개요 — Ollama 모델 검색 및 태그 목록 조회를 위한 JSON API와 클라이언트 SDK.
+---
+
+**ollama-models**는 [Ollama](https://ollama.com) 레지스트리에서 모델을 검색하고 사용 가능한 모든 태그(가중치)를 조회할 수 있는 REST API와 클라이언트 SDK를 제공합니다.
+
+Ollama는 레지스트리 검색을 위한 공개 API를 제공하지 않습니다. 이 프로젝트는 `ollama.com`의 SSR HTML을 스크래핑하여 구조화된 JSON을 반환합니다.
+
+## 빠른 시작
+
+### API
+
+```bash
+# 모델 검색
+curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen3&page=1"
+
+# 모델의 모든 태그 조회
+curl "https://ollama-models-api.devcomfort.workers.dev/model?name=library/qwen3"
+
+# 헬스 체크
+curl "https://ollama-models-api.devcomfort.workers.dev/health"
+```
+
+**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+
+### TypeScript 클라이언트
+
+```bash
+npm install @devcomfort/ollama-models
+```
+
+```typescript
+import { OllamaModelsClient } from '@devcomfort/ollama-models';
+
+const client = new OllamaModelsClient();
+const result = await client.search('qwen3', 1);
+```
+
+### Python 클라이언트
+
+```bash
+pip install ollama-models
+```
+
+```python
+from ollama_models import OllamaModelsClient
+
+client = OllamaModelsClient()
+result = client.search("qwen3", page=1)
+```
+
+## 프로젝트 구조
+
+```
+api/                      # Cloudflare Workers REST API
+packages/
+  ts-client/              # @devcomfort/ollama-models (NPM)
+  py-client/              # ollama-models (PyPI)
+```
+
+## 버전
+
+현재 API 버전: **v0.2.0**
+
+## 라이선스
+
+BSD-3-Clause

@@ -1,0 +1,136 @@
+---
+title: "TypeScript 클라이언트"
+description: "@devcomfort/ollama-models의 설치, 사용법, 타입 레퍼런스."
+---
+
+`@devcomfort/ollama-models` 패키지는 ollama-models Workers API를 위한 타입 기반의 Promise HTTP 클라이언트를 제공합니다.
+
+## 설치
+
+```bash
+npm install @devcomfort/ollama-models
+# 또는
+pnpm add @devcomfort/ollama-models
+# 또는
+yarn add @devcomfort/ollama-models
+```
+
+## 사용법
+
+### 기본 설정
+
+```typescript
+import { OllamaModelsClient } from '@devcomfort/ollama-models';
+
+// 기본적으로 공식 호스팅 API를 사용
+const client = new OllamaModelsClient();
+
+// 자체 호스팅 인스턴스를 지정하려면
+// const client = new OllamaModelsClient('https://your-instance.workers.dev');
+```
+
+### 모델 검색
+
+```typescript
+const result = await client.search('qwen3', 1);
+
+for (const page of result.pages) {
+  console.log(page.http_url);
+  console.log(page.model_id);
+}
+
+console.log(result.keyword);     // 'qwen3'
+console.log(result.page_range);  // 1 또는 { from: 1, to: 3 }
+```
+
+### 모델 태그 조회
+
+```typescript
+const model = await client.getModel('library/qwen3');
+
+console.log(model.id);           // 'qwen3'
+console.log(model.default_tag);  // 'qwen3:latest'
+
+for (const tag of model.tags) {
+  console.log(tag);  // 'qwen3:latest', 'qwen3:4b', ...
+}
+```
+
+### 헬스 체크
+
+```typescript
+const status = await client.health();
+
+if (!status.ok) {
+  console.error('검색 에러:', status.checks.search.error);
+  console.error('모델 에러:', status.checks.model.error);
+}
+```
+
+## 생성자
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|-----------|------|---------|-------------|
+| `baseUrl` | `string` | `https://ollama-models-api.devcomfort.workers.dev` | API의 Base URL. 끝의 슬래시는 자동으로 제거됩니다. |
+
+## 메서드
+
+### `search(keyword?, page?): Promise<SearchResult>`
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|-----------|------|---------|-------------|
+| `keyword` | `string` | `""` | 검색어. 빈 문자열이면 모든 모델을 목록 조회합니다. |
+| `page` | `number` | `1` | 1부터 시작하는 페이지 번호. |
+
+**예외:** API가 2xx가 아닌 HTTP 상태를 반환하면 `Error`를 던집니다.
+
+### `getModel(name): Promise<ModelTags>`
+
+| 파라미터 | 타입 | 설명 |
+|-----------|------|-------------|
+| `name` | `string` | 모델 식별자 — `library/qwen3`, `User/model`, 단순 이름, 또는 전체 URL. |
+
+**예외:** API가 2xx가 아닌 HTTP 상태를 반환하면 `Error`를 던집니다.
+
+### `health(): Promise<HealthStatus>`
+
+두 스크래퍼에 대한 실시간 헬스 체크를 실행합니다.
+
+**예외:** API가 2xx가 아닌 HTTP 상태를 반환하면 `Error`를 던집니다.
+
+## 타입 정의
+
+```typescript
+interface SearchResult {
+  pages: ModelPage[];
+  page_range: number | { from: number; to: number };
+  keyword: string;
+}
+
+interface ModelPage {
+  http_url: string;
+  model_id: string;
+}
+
+interface ModelTags {
+  page_url: string;
+  id: string;
+  tags: string[];
+  default_tag: string | null;
+}
+
+interface HealthStatus {
+  ok: boolean;
+  timestamp: string;
+  checks: {
+    search: CheckResult;
+    model: CheckResult;
+  };
+}
+
+interface CheckResult {
+  ok: boolean;
+  count?: number;
+  error?: string;
+}
+```

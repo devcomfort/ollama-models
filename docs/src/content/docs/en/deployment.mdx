@@ -1,0 +1,98 @@
+---
+title: Deployment
+description: How to deploy the API to Cloudflare Workers, configure secrets, and set up CI/CD.
+---
+
+## Cloudflare Workers
+
+The API runs on Cloudflare Workers and is deployed via Wrangler.
+
+### Prerequisites
+
+- Node.js v18+
+- pnpm v8+
+- Cloudflare account with Workers enabled
+
+### Configuration
+
+The Worker configuration lives in `api/wrangler.toml`:
+
+```toml
+name = "ollama-models-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+account_id = "your-account-id"
+
+[triggers]
+crons = ["0 * * * *"]
+
+[vars]
+OLLAMA_BASE = "https://ollama.com"
+OLLAMA_USER_AGENT = "ollama-models-api/0.1 (+https://github.com/devcomfort/ollama-models)"
+OLLAMA_ACCEPT = "text/html,application/xhtml+xml"
+OLLAMA_ACCEPT_LANGUAGE = "en-US,en;q=0.9"
+```
+
+### Deploy
+
+```bash
+pnpm deploy
+```
+
+This runs `wrangler deploy` from the `api/` directory. Wrangler transpiles TypeScript at deploy time — no separate build step is needed.
+
+## Secrets
+
+Webhook URLs for alerts are stored as Cloudflare Workers secrets:
+
+```bash
+# Set the alert webhook URL (Slack, Discord, or email)
+wrangler secret put ALERT_WEBHOOK_URL --config api/wrangler.toml
+```
+
+Secrets are encrypted and never appear in `wrangler.toml` or version control.
+
+## Cron Triggers
+
+The Worker runs a scheduled health check every hour:
+
+```toml
+[triggers]
+crons = ["0 * * * *"]
+```
+
+On each cron tick, `runHealthCheck()` probes both scrapers. If any probe fails, an alert is sent to the configured webhook URL.
+
+## Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `OLLAMA_BASE` | Base URL for ollama.com scraping | `https://ollama.com` |
+| `OLLAMA_USER_AGENT` | User-Agent header for upstream requests | `ollama-models-api/0.1 (+https://github.com/devcomfort/ollama-models)` |
+| `OLLAMA_ACCEPT` | Accept header for upstream requests | `text/html,application/xhtml+xml` |
+| `OLLAMA_ACCEPT_LANGUAGE` | Accept-Language header for upstream requests | `en-US,en;q=0.9` |
+| `ALERT_WEBHOOK_URL` | Webhook URL for failure alerts (secret) | Not set |
+
+## CI/CD
+
+### Pull Request Workflow
+
+```yaml
+# ci.yml
+- Install dependencies (pnpm install)
+- Run unit tests (pnpm test)
+- Run integration tests (pnpm test:api, pnpm test:ts, pnpm test:py)
+```
+
+### Deploy Workflow
+
+```yaml
+# deploy.yml (triggered on main push)
+- Deploy API (pnpm deploy)
+- Run health check against deployed instance
+- Run E2E tests (./scripts/e2e.sh)
+- Publish packages (npm, PyPI)
+```
+
+The deploy workflow only triggers when code files change — documentation-only commits skip deployment.

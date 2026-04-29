@@ -1,0 +1,113 @@
+---
+title: Python 클라이언트
+description: ollama-models (PyPI)의 설치, 동기/비동기 사용법, 타입 레퍼런스.
+---
+
+PyPI의 `ollama-models` 패키지는 ollama-models Workers API를 위한 동기 및 비동기 API를 모두 제공하는 Python 클라이언트입니다.
+
+## 설치
+
+```bash
+pip install ollama-models
+```
+
+Python 3.8 이상이 필요합니다.
+
+## 사용법
+
+### 기본 설정
+
+```python
+from ollama_models import OllamaModelsClient
+
+# 기본적으로 공식 호스팅 API를 사용
+client = OllamaModelsClient()
+
+# 자체 호스팅 인스턴스를 지정하려면
+# client = OllamaModelsClient("https://your-instance.workers.dev")
+```
+
+### 동기 API
+
+```python
+# 모델 검색
+result = client.search("qwen3", page=1)
+for page in result.pages:
+    print(page.http_url)
+    print(page.model_id)
+
+# 모델의 모든 태그 조회
+model = client.get_model("library/qwen3")
+print(model.id)            # 'qwen3'
+print(model.default_tag)   # 'qwen3:latest'
+
+for tag in model.tags:
+    print(tag)  # 'qwen3:latest', 'qwen3:4b', ...
+```
+
+### 비동기 API
+
+```python
+import asyncio
+
+async def main():
+    result = await client.search_async("qwen3")
+    model = await client.get_model_async("library/qwen3")
+
+    for page in result.pages:
+        print(page.http_url)
+
+    for tag in model.tags:
+        print(tag)
+
+asyncio.run(main())
+```
+
+## 생성자
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|-----------|------|---------|-------------|
+| `base_url` | `Optional[str]` | `https://ollama-models-api.devcomfort.workers.dev` | API의 Base URL. 끝의 슬래시는 자동으로 제거됩니다. |
+
+## 메서드
+
+### `search(keyword: str = "", page: int = 1) -> SearchResult`
+
+동기 검색.
+
+### `search_async(keyword: str = "", page: int = 1) -> SearchResult`
+
+비동기 검색.
+
+### `get_model(name: str) -> ModelTags`
+
+동기 모델 태그 조회.
+
+### `get_model_async(name: str) -> ModelTags`
+
+비동기 모델 태그 조회.
+
+## 타입 정의
+
+```python
+from dataclasses import dataclass
+from typing import List, Optional
+
+@dataclass
+class ModelPage:
+    http_url: str
+    model_id: str
+
+@dataclass
+class SearchResult:
+    pages: List[ModelPage]
+    page_range: int  # 또는 다중 페이지일 때 {from, to} 딕셔너리
+    keyword: str
+
+@dataclass
+class ModelTags:
+    page_url: str
+    id: str
+    tags: List[str]
+    default_tag: Optional[str]
+```
