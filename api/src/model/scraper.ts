@@ -58,8 +58,8 @@ export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelT
 
   // === Parsing ===
 
-  // Tag card links are identified by their "flex flex-col" layout class,
-  // which is unique to tag cards and avoids selecting duplicate text links.
+  // Tag card links are identified by their `flex` and `flex-col` CSS classes,
+  // which are unique to tag cards and avoids selecting duplicate text links.
   // The href (e.g. "/library/qwen3:latest") is stripped of its leading slash
   // and the `library/` prefix so official models produce a pull-ready
   // identifier like "qwen3:latest". Community model hrefs (e.g.
@@ -67,7 +67,7 @@ export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelT
   const root = parse(await res.text());
   const tags: string[] = [];
 
-  for (const el of root.querySelectorAll('a[class*="flex flex-col"]')) {
+  for (const el of root.querySelectorAll('a.flex.flex-col')) {
     const href = el.getAttribute('href');
     if (href) {
       const pullId = href
@@ -82,7 +82,7 @@ export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelT
   if (tags.length === 0) {
     throw new ParseError(
       'Scraper: no tag cards found on model page. ' +
-      "The selector 'a[class*=\"flex flex-col\"]' may no longer match — Ollama's HTML structure may have changed.",
+      "The selector 'a.flex.flex-col' may no longer match — Ollama's HTML structure may have changed.",
     );
   }
 

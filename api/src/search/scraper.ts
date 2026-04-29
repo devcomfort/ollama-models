@@ -58,7 +58,7 @@ export async function scrapeSearchPage(page: number, keyword: string, env: Env):
   const seen = new Set<string>();
   const pages: ModelPage[] = [];
 
-  for (const el of root.querySelectorAll('a.group.w-full.border-b')) {
+  for (const el of root.querySelectorAll('a.group.w-full')) {
     const href = el.getAttribute('href');
     if (!href) continue;
     const http_url = `${env.OLLAMA_BASE}${href}`;
@@ -71,7 +71,7 @@ export async function scrapeSearchPage(page: number, keyword: string, env: Env):
   if (pages.length === 0) {
     throw new ParseError(
       'Scraper: no model cards found on search page. ' +
-      "The selector 'a.group.w-full.border-b' may no longer match — Ollama's HTML structure may have changed.",
+      "The selector 'a.group.w-full' may no longer match — Ollama's HTML structure may have changed.",
     );
   }
 

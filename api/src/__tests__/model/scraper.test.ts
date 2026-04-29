@@ -51,7 +51,7 @@ describe('scrapeModelPage', () => {
     vi.stubGlobal('fetch', mockFetch(html));
     const page: ModelPage = { http_url: 'https://ollama.com/library/unknown-model', model_id: 'library/unknown-model' };
     await expect(scrapeModelPage(page, TEST_ENV)).rejects.toThrow(
-      "selector 'a[class*=\"flex flex-col\"]' may no longer match",
+      "selector 'a.flex.flex-col' may no longer match",
     );
     await expect(scrapeModelPage(page, TEST_ENV)).rejects.toBeInstanceOf(ParseError);
   });
