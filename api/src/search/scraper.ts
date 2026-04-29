@@ -14,11 +14,12 @@ interface Env {
  *
  * Ollama 검색 결과 페이지를 가져와 고유한 모델 페이지 URL을 반환한다.
  *
- * Model cards are identified by the CSS selector `a.group.w-full`, which
- * distinguishes them from all navigation and footer links.
+ * Model cards are identified by their `<a>` elements with classes
+ * `group` and `w-full` inside `<li>` list items, which distinguishes them
+ * from all navigation and footer links.
  *
- * 모델 카드는 CSS 선택자 `a.group.w-full`로 식별되며, 이는 모든 탐색 및
- * 푸터 링크와 구별된다.
+ * 모델 카드는 `<li>` 목록 항목 내 `group` 및 `w-full` 클래스를 가진
+ * `<a>` 요소로 식별되며, 이는 모든 탐색 및 푸터 링크와 구별된다.
  *
  * @param page - 1-based page number to fetch.
  * @param page - 가져올 1부터 시작하는 페이지 번호.
