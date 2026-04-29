@@ -18,6 +18,9 @@ vi.mock('../search/scraper', () => ({
 vi.mock('../model/scraper', () => ({
   scrapeModelPage: vi.fn(),
 }));
+vi.mock('../alerts/service', () => ({
+  createAlertService: () => ({ send: vi.fn() }),
+}));
 
 import { app } from '../index';
 import { scrapeSearchPage } from '../search/scraper';
