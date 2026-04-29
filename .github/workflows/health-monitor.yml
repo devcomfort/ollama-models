@@ -37,6 +37,9 @@ jobs:
           # for auto-heal e2e simulation. The empty-string fallback handles the
           # cron case where github.event.inputs is null.
           TARGET_ENV: ${{ github.event.inputs.target_env || 'production' }}
+          # When probing staging, pass the test branch to auto-heal so it
+          # checks out the code with intentionally broken selectors.
+          TARGET_REF: ${{ github.event.inputs.target_env == 'staging' && 'test/auto-heal-e2e' || '' }}
         run: |
           set -uo pipefail
 
@@ -134,4 +137,5 @@ jobs:
           gh workflow run "Auto-Heal Scrapers" \
             --repo "${{ github.repository }}" \
             -f detected_at="${{ github.event.repository.updated_at }}" \
-            -f run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            -f run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f ref="${TARGET_REF:-}"

@@ -11,6 +11,10 @@ on:
         description: 'URL of the triggering health-monitor run'
         type: string
         default: ''
+      ref:
+        description: 'Branch/ref to checkout for patching (empty = default main)'
+        type: string
+        default: ''
 
 concurrency:
   group: auto-heal
@@ -128,6 +132,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || '' }}
 
       - uses: pnpm/action-setup@v4
 
