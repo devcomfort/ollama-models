@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.34.0",
-    "astro": "5.5.0"
+    "astro": "6.1.6"
   }
 }
