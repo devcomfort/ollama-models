@@ -1,0 +1,225 @@
+# Sequential Deploy Pipeline
+#
+# Purpose
+# ───────
+# Deploys the API, verifies it is healthy, then deploys both clients.
+# This sequential design ensures that client packages never ship against
+# a broken or unreachable API endpoint.
+#
+#   1. deploy-api       — Deploy the Cloudflare Workers API via wrangler.
+#   2. health-check     — Hit the live /health endpoint and fail the pipeline
+#                         if any probe is not ok.
+#   3. e2e              — Run the full E2E test suite against the deployed API.
+#   4. deploy-ts-client — Publish @devcomfort/ollama-models to npm.
+#   5. deploy-py-client — Publish ollama-models to PyPI (via OIDC).
+#
+# Triggered manually via workflow_dispatch or on pushes to main that touch
+# api/, packages/ts-client/, or packages/py-client/.
+#
+# 목적
+# ────
+# API를 배포하고 정상 동작을 확인한 뒤 클라이언트를 배포한다.
+# 순차 설계로 클라이언트 패키지가 깨지거나 도달 불가능한 API 엔드포인트를
+# 향해 출시되지 않도록 보장한다.
+#
+#   1. deploy-api       — wrangler로 Cloudflare Workers API 배포.
+#   2. health-check     — 라이브 /health 엔드포인트를 호출하고 프로브가
+#                         ok가 아니면 파이프라인 실패 처리.
+#   3. e2e              — 배포된 API 대상으로 전체 E2E 테스트 스위트 실행.
+#   4. deploy-ts-client — @devcomfort/ollama-models를 npm에 출시.
+#   5. deploy-py-client — ollama-models를 PyPI에 출시(OIDC).
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - '!api/openapi.json'
+      - '!api/README.md'
+      - 'packages/ts-client/**'
+      - '!packages/ts-client/README.md'
+      - 'packages/py-client/**'
+      - '!packages/py-client/README.md'
+      - '.github/workflows/deploy.yml'
+      - 'scripts/e2e.sh'
+
+env:
+  API_URL: https://ollama-models-api.devcomfort.workers.dev
+
+jobs:
+  # ─── 1. Deploy API ──────────────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API to Cloudflare Workers
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Cloudflare Workers
+        run: pnpm --filter ollama-models-api deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  # ─── 2. Health check against deployed API ───────────────────────────────────
+  health-check:
+    name: Verify deployed API health
+    runs-on: ubuntu-latest
+    needs: deploy-api
+
+    steps:
+      - name: Wait for propagation
+        run: sleep 15
+
+      - name: Check /health endpoint
+        run: |
+          echo "Checking $API_URL/health ..."
+          HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "$API_URL/health")
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/health.json
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Health check returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          OK=$(jq -r '.ok' /tmp/health.json)
+          if [ "$OK" != "true" ]; then
+            echo "❌ Health check body reports ok=false"
+            exit 1
+          fi
+
+          echo "✅ API is healthy"
+
+      - name: Smoke test /search endpoint
+        run: |
+          echo "Checking $API_URL/search?q=qwen3&page=1 ..."
+          HTTP_CODE=$(curl -s -o /tmp/search.json -w "%{http_code}" "$API_URL/search?q=qwen3&page=1")
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/search.json
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Search endpoint returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "✅ Search endpoint is responding"
+
+      - name: Smoke test /model endpoint
+        run: |
+          echo "Checking $API_URL/model?name=library/qwen3 ..."
+          HTTP_CODE=$(curl -s -o /tmp/model.json -w "%{http_code}" "$API_URL/model?name=library/qwen3")
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/model.json
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Model endpoint returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "✅ Model endpoint is responding"
+
+  # ─── 3. E2E test suite against deployed API ─────────────────────────────────
+  e2e:
+    name: E2E test suite
+    runs-on: ubuntu-latest
+    needs: health-check
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run E2E tests
+        run: |
+          chmod +x scripts/e2e.sh
+          ./scripts/e2e.sh "$API_URL"
+
+  # ─── 4. Deploy TypeScript client ────────────────────────────────────────────
+  deploy-ts-client:
+    name: Publish TS client to npm
+    runs-on: ubuntu-latest
+    needs: e2e
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm --filter @devcomfort/ollama-models test
+
+      - name: Build
+        run: pnpm --filter @devcomfort/ollama-models build
+
+      - name: Publish to npm
+        run: pnpm --filter @devcomfort/ollama-models publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ─── 4. Deploy Python client ────────────────────────────────────────────────
+  deploy-py-client:
+    name: Publish Python client to PyPI
+    runs-on: ubuntu-latest
+    needs: e2e
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: |
+          pip install \
+            httpx \
+            "pytest>=8.0.0" \
+            "pytest-asyncio>=0.23.0" \
+            "pytest-httpx>=0.21.0"
+          pip install packages/py-client/
+
+      - name: Run tests
+        run: pytest packages/py-client/tests/ -v
+
+      - name: Build distribution
+        run: |
+          pip install build
+          python -m build packages/py-client/ --outdir packages/py-client/dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/py-client/dist/
