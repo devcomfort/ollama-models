@@ -8,6 +8,7 @@
             "DOM"
         ],
         "strict": true,
+        "skipLibCheck": true,
         "declaration": true,
         "outDir": "dist"
     },
