@@ -36,14 +36,17 @@ const TEST_ENV = {
 
 // ---------------------------------------------------------------------------
 // In-memory HTML cache — fetches each ollama.com URL at most once.
+// Capture original fetch before overriding it so fetchCachedHtml doesn't
+// recurse infinitely through the intercepted globalThis.fetch.
 // ---------------------------------------------------------------------------
 
+const originalFetch = globalThis.fetch;
 const htmlCache = new Map<string, string>();
 
 async function fetchCachedHtml(url: string): Promise<string> {
   if (htmlCache.has(url)) return htmlCache.get(url)!;
 
-  const res = await fetch(url, {
+  const res = await originalFetch(url, {
     headers: {
       'User-Agent': TEST_ENV.OLLAMA_USER_AGENT,
       Accept: TEST_ENV.OLLAMA_ACCEPT,
@@ -65,7 +68,6 @@ async function fetchCachedHtml(url: string): Promise<string> {
 // All other requests (e.g. Slack/Discord webhooks) pass through unchanged.
 // ---------------------------------------------------------------------------
 
-const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = input.toString();
 
