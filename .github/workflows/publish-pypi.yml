@@ -4,12 +4,6 @@ on:
   push:
     tags:
       - 'py-v*'
-  workflow_call:
-    inputs:
-      test-pypi:
-        description: 'Publish to TestPyPI instead of production PyPI'
-        type: boolean
-        default: false
 
 jobs:
   build:
@@ -45,7 +39,6 @@ jobs:
           path: packages/py-client/dist/
 
   publish-testpypi:
-    if: ${{ github.event_name == 'workflow_call' && inputs.test-pypi }}
     needs: build
     runs-on: ubuntu-latest
     environment: testpypi
@@ -64,8 +57,7 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
 
   publish-pypi:
-    if: ${{ github.event_name != 'workflow_call' || !inputs.test-pypi }}
-    needs: build
+    needs: publish-testpypi
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
