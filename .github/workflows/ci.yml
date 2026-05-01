@@ -113,8 +113,6 @@ jobs:
 
       - name: Install rye
         run: curl -sSf https://rye.astral.sh/get | RYE_INSTALL_OPTION="--yes" bash
-        env:
-          RYE_NO_AUTO_INSTALL: '1'
 
       - name: Add rye to PATH
         run: echo "$HOME/.rye/shims" >> $GITHUB_PATH
