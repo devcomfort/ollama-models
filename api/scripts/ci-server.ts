@@ -26,6 +26,7 @@ Object.defineProperty(globalThis, 'caches', {
 
 import { serve } from '@hono/node-server';
 import { app } from '../src/index';
+import { createFetchInterceptor } from '../src/__tests__/ci-interceptor';
 
 const TEST_ENV = {
   OLLAMA_BASE: 'https://ollama.com',
@@ -34,53 +35,11 @@ const TEST_ENV = {
   OLLAMA_ACCEPT_LANGUAGE: 'en-US,en;q=0.9',
 };
 
-// ---------------------------------------------------------------------------
-// In-memory HTML cache — fetches each ollama.com URL at most once.
-// Capture original fetch before overriding it so fetchCachedHtml doesn't
-// recurse infinitely through the intercepted globalThis.fetch.
-// ---------------------------------------------------------------------------
-
-const originalFetch = globalThis.fetch;
-const htmlCache = new Map<string, string>();
-
-async function fetchCachedHtml(url: string): Promise<string> {
-  if (htmlCache.has(url)) return htmlCache.get(url)!;
-
-  const res = await originalFetch(url, {
-    headers: {
-      'User-Agent': TEST_ENV.OLLAMA_USER_AGENT,
-      Accept: TEST_ENV.OLLAMA_ACCEPT,
-      'Accept-Language': TEST_ENV.OLLAMA_ACCEPT_LANGUAGE,
-    },
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch fixture: HTTP ${res.status} ${url}`);
-  }
-
-  const text = await res.text();
-  htmlCache.set(url, text);
-  return text;
-}
-
-// ---------------------------------------------------------------------------
-// Intercept fetch calls to ollama.com and serve cached HTML.
-// All other requests (e.g. Slack/Discord webhooks) pass through unchanged.
-// ---------------------------------------------------------------------------
-
-globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-  const url = input.toString();
-
-  if (url.includes('ollama.com')) {
-    const html = await fetchCachedHtml(url);
-    return new Response(html, {
-      status: 200,
-      headers: { 'Content-Type': 'text/html' },
-    });
-  }
-
-  return originalFetch(input, init);
-};
+createFetchInterceptor(
+  TEST_ENV.OLLAMA_USER_AGENT,
+  TEST_ENV.OLLAMA_ACCEPT,
+  TEST_ENV.OLLAMA_ACCEPT_LANGUAGE,
+);
 
 // ---------------------------------------------------------------------------
 // Start the server
