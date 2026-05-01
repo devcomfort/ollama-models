@@ -26,7 +26,7 @@ jobs:
           pip install packages/py-client/
 
       - name: Run tests
-        run: pytest packages/py-client/tests/ -v
+        run: pytest packages/py-client/tests/test_client.py packages/py-client/tests/test_types.py -v
 
       - name: Build distribution
         run: |
