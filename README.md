@@ -67,7 +67,7 @@ result.pages.forEach(p => console.log(p.http_url));
 
 // List all tags for a model
 const model = await client.getModel('qwen3');
-console.log(model.default_model_id); // "qwen3:latest"
+console.log(model.default_tag); // "qwen3:latest"
 ```
 
 ### Python
@@ -84,7 +84,7 @@ for page in result.pages:
 
 # List all tags for a model
 model = client.get_model("qwen3")
-print(model.default_model_id)  # "qwen3:latest"
+print(model.default_tag)  # "qwen3:latest"
 
 # Async
 import asyncio
@@ -189,14 +189,11 @@ interface SearchResult {
   keyword: string;
 }
 
-interface ModelWeight {
-  http_url: string;
-  id: string; // e.g. "qwen3:4b"
-}
-
-interface ModelList {
-  model_list: ModelWeight[];
-  default_model_id: string;
+interface ModelTags {
+  page_url: string;
+  id: string;           // e.g. "library/qwen3"
+  tags: string[];       // e.g. ["qwen3:latest", "qwen3:4b"]
+  default_tag: string | null;
 }
 ```
 

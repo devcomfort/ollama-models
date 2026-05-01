@@ -26,9 +26,9 @@ for page in result.pages:
 
 # Get all tags for a model
 model = client.get_model("qwen3")
-print(model.default_model_id)   # qwen3:latest
-for w in model.model_list:
-    print(w.id)                 # qwen3:latest, qwen3:4b, ...
+print(model.default_tag)          # qwen3:latest
+for t in model.tags:
+    print(t)                      # qwen3:latest, qwen3:4b, ...
 
 # Async usage
 import asyncio

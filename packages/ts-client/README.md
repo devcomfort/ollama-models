@@ -27,8 +27,8 @@ result.pages.forEach(p => console.log(p.http_url));
 
 // Get all tags for a model
 const model = await client.getModel('qwen3');
-console.log(model.default_model_id); // qwen3:latest
-model.model_list.forEach(w => console.log(w.id));
+console.log(model.default_tag); // qwen3:latest
+model.tags.forEach(t => console.log(t));
 ```
 
 ## API
@@ -46,7 +46,7 @@ model.model_list.forEach(w => console.log(w.id));
 | `keyword` | `string` | `""` | Search term |
 | `page` | `number` | `1` | Page number (1-based) |
 
-### `client.getModel(name): Promise<ModelList>`
+### `client.getModel(name): Promise<ModelTags>`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -61,17 +61,14 @@ interface SearchResult {
   keyword: string;
 }
 
-interface ModelList {
-  model_list: ModelWeight[];
-  default_model_id: string;
+interface ModelTags {
+  page_url: string;
+  id: string;           // e.g. "library/qwen3"
+  tags: string[];       // e.g. ["qwen3:latest", "qwen3:4b"]
+  default_tag: string | null;
 }
 
 interface ModelPage {
   http_url: string;
-}
-
-interface ModelWeight {
-  http_url: string;
-  id: string; // e.g. "qwen3:4b"
 }
 ```
