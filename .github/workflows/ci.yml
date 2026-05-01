@@ -30,7 +30,7 @@
 #                     Vitest 실행으로 처리. api 완료 후 실행.
 #
 #   3. py-client    — Python 클라이언트 테스트. 단위 테스트는 pytest-httpx로 전송 레이어
-#                     mock 처리. 통합 테스트는 api/scripts/serve-for-ci.ts를 Node.js
+#                     mock 처리. 통합 테스트는 api/scripts/ci-server.ts를 Node.js
 #                     subprocess로 기동하고 실제 HTTP 요청을 전송해 역직렬화 체인을
 #                     end-to-end로 검증. api에 의존.
 
