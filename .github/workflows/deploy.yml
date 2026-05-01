@@ -33,11 +33,6 @@ name: Deploy
 
 on:
   workflow_dispatch:
-    inputs:
-      test-pypi:
-        description: 'Publish to TestPyPI instead of production PyPI'
-        type: boolean
-        default: false
   push:
     branches: [main]
     paths:
@@ -187,7 +182,5 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # ─── 4. Deploy Python client ────────────────────────────────────────────────
-  deploy-py-client:
-    name: Publish Python client to PyPI
-    uses: ./.github/workflows/publish-pypi.yml
-    needs: e2e
+  # PyPI publish is handled by .github/workflows/publish-pypi.yml on 'py-v*' tag
+  # pushes. OIDC Trusted Publisher is configured against that workflow file.
