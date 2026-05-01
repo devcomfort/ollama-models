@@ -193,4 +193,4 @@ jobs:
     needs: e2e
     secrets: inherit
     with:
-      test-pypi: ${{ github.event.inputs.test-pypi || false }}
+      test-pypi: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.test-pypi == 'true' || false }}
