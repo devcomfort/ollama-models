@@ -192,5 +192,3 @@ jobs:
     uses: ./.github/workflows/publish-pypi.yml
     needs: e2e
     secrets: inherit
-    with:
-      test-pypi: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.test-pypi == 'true' || false }}
