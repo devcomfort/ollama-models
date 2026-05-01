@@ -191,4 +191,3 @@ jobs:
     name: Publish Python client to PyPI
     uses: ./.github/workflows/publish-pypi.yml
     needs: e2e
-    secrets: inherit
