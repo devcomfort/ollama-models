@@ -117,6 +117,9 @@ jobs:
       - name: Add rye to PATH
         run: echo "$HOME/.rye/shims" >> $GITHUB_PATH
 
+      - name: Fetch Python toolchain
+        run: rye toolchain fetch 3.12
+
       - name: Sync Python dependencies (via rye)
         run: cd packages/py-client && rye sync --no-lock
 
