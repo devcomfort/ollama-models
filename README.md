@@ -8,7 +8,7 @@
   <a href="https://github.com/devcomfort/ollama-models/actions/workflows/deploy.yml"><img src="https://github.com/devcomfort/ollama-models/actions/workflows/deploy.yml/badge.svg" alt="Deploy"></a>
   <a href="https://github.com/devcomfort/ollama-models/actions/workflows/health-monitor.yml"><img src="https://github.com/devcomfort/ollama-models/actions/workflows/health-monitor.yml/badge.svg" alt="Health"></a>
   <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/pyversions/ollama-models" alt="Python versions"></a>
-  <a href="https://docs.scalar.app/reference?url=https%3A%2F%2Follama-models-api.devcomfort.workers.dev%2Fopenapi.json"><img src="https://img.shields.io/badge/OpenAPI-3.0-85EA2D?logo=openapiinitiative" alt="OpenAPI"></a>
+  <a href="https://redocly.github.io/redoc/?url=https%3A%2F%2Follama-models-api.devcomfort.workers.dev%2Fopenapi.json"><img src="https://img.shields.io/badge/OpenAPI-3.0-85EA2D?logo=openapiinitiative" alt="OpenAPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License"></a>
 </p>
 
@@ -100,7 +100,7 @@ asyncio.run(main())
 
 **Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
 
-[![OpenAPI](https://img.shields.io/badge/OpenAPI-Interactive-85EA2D?logo=openapiinitiative)](https://docs.scalar.app/reference?url=https%3A%2F%2Follama-models-api.devcomfort.workers.dev%2Fopenapi.json)
+[![OpenAPI](https://img.shields.io/badge/OpenAPI-Interactive-85EA2D?logo=openapiinitiative)](https://redocly.github.io/redoc/?url=https%3A%2F%2Follama-models-api.devcomfort.workers.dev%2Fopenapi.json)
 
 | Endpoint | Parameters | Description |
 |---|---|---|
