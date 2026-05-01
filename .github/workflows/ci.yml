@@ -112,7 +112,12 @@ jobs:
           python-version: '3.12'
 
       - name: Install rye
-        run: pip install rye
+        run: curl -sSf https://rye.astral.sh/get | RYE_INSTALL_OPTION="--yes" bash
+        env:
+          RYE_NO_AUTO_INSTALL: '1'
+
+      - name: Add rye to PATH
+        run: echo "$HOME/.rye/shims" >> $GITHUB_PATH
 
       - name: Sync Python dependencies (via rye)
         run: cd packages/py-client && rye sync

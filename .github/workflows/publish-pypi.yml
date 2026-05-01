@@ -18,7 +18,8 @@ jobs:
 
       - name: Install rye and sync dependencies
         run: |
-          pip install rye
+          curl -sSf https://rye.astral.sh/get | RYE_INSTALL_OPTION="--yes" bash
+          echo "$HOME/.rye/shims" >> $GITHUB_PATH
           cd packages/py-client && rye sync
 
       - name: Run tests
