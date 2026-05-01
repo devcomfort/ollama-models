@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'py-v*'
+  workflow_call:
+    inputs:
+      test-pypi:
+        description: 'Publish to TestPyPI instead of production PyPI'
+        type: boolean
+        default: false
 
 jobs:
   build:

@@ -189,38 +189,8 @@ jobs:
   # ─── 4. Deploy Python client ────────────────────────────────────────────────
   deploy-py-client:
     name: Publish Python client to PyPI
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/publish-pypi.yml
     needs: e2e
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install test dependencies
-        run: |
-          pip install \
-            httpx \
-            "pytest>=8.0.0" \
-            "pytest-asyncio>=0.23.0" \
-            "pytest-httpx>=0.21.0"
-          pip install packages/py-client/
-
-      - name: Run tests
-        run: pytest packages/py-client/tests/test_client.py packages/py-client/tests/test_types.py -v
-
-      - name: Build distribution
-        run: |
-          pip install build
-          python -m build packages/py-client/ --outdir packages/py-client/dist/
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: packages/py-client/dist/
-          repository-url: ${{ inputs.test-pypi && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
+    secrets: inherit
+    with:
+      test-pypi: ${{ github.event.inputs.test-pypi || false }}
