@@ -14,7 +14,7 @@
 #
 #   3. py-client    — Tests the Python client. Unit tests use pytest-httpx to mock
 #                     HTTP at the transport layer. Integration tests start
-#                     api/scripts/serve-for-ci.ts as a Node.js subprocess and send
+#                     api/scripts/ci-server.ts as a Node.js subprocess and send
 #                     real HTTP requests to it, exercising the full deserialization
 #                     chain end-to-end. Depends on `api`.
 #
@@ -111,23 +111,17 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Node.js dependencies (for mock server)
+      - name: Install rye
+        run: pip install rye
+
+      - name: Sync Python dependencies (via rye)
+        run: cd packages/py-client && rye sync
+
+      - name: Install Node.js dependencies (for integration test mock server)
         run: pnpm install --frozen-lockfile
 
-      - name: Install Python client & test dependencies
-        run: |
-          pip install \
-            httpx \
-            "pytest>=8.0.0" \
-            "pytest-asyncio>=0.23.0" \
-            "pytest-httpx>=0.21.0"
-          pip install packages/py-client/
-
-      # Unit tests use pytest-httpx to mock HTTP — no server needed.
       - name: Run Python unit tests
-        run: pytest packages/py-client/tests/test_client.py packages/py-client/tests/test_types.py -v
+        run: cd packages/py-client && rye run pytest tests/test_client.py tests/test_types.py -v
 
-      # Integration tests start the Node.js mock server via subprocess.
-      # npx tsx is available because Node.js + pnpm are already installed above.
       - name: Run Python integration tests (against Node.js mock server)
-        run: pytest packages/py-client/tests/test_integration.py -v
+        run: cd packages/py-client && rye run pytest tests/test_integration.py -v

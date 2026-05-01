@@ -8,7 +8,7 @@
         "build": "pnpm --filter @devcomfort/ollama-models build",
         "gen-openapi": "pnpm --filter ollama-models-api gen-openapi",
         "type-check": "pnpm -r type-check",
-        "test": "pnpm -r run test && pnpm test:py",
+        "test": "pnpm -r run test && pnpm test:py && pnpm test:lint-readme",
         "test:api": "pnpm --filter ollama-models-api test",
         "test:ts": "pnpm --filter @devcomfort/ollama-models test",
         "test:py": "cd packages/py-client && SKIP_INTEGRATION=1 rye run pytest",

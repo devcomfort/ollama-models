@@ -16,17 +16,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install test dependencies
+      - name: Install rye and sync dependencies
         run: |
-          pip install \
-            httpx \
-            pytest>=8.0.0 \
-            pytest-asyncio>=0.23.0 \
-            "pytest-httpx>=0.21.0"
-          pip install packages/py-client/
+          pip install rye
+          cd packages/py-client && rye sync
 
       - name: Run tests
-        run: pytest packages/py-client/tests/test_client.py packages/py-client/tests/test_types.py -v
+        run: cd packages/py-client && rye run pytest tests/test_client.py tests/test_types.py -v
 
       - name: Build distribution
         run: |
