@@ -55,7 +55,7 @@ def mock_api_url() -> Generator[str, None, None]:
     script = os.path.join(repo_root, "api", "scripts", "ci-server.ts")
 
     proc = subprocess.Popen(
-        ["npx", "tsx", script],
+        ["pnpm", "exec", "tsx", script],
         env={**os.environ, "PORT": str(CI_PORT)},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
