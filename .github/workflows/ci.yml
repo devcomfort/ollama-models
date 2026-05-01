@@ -120,7 +120,7 @@ jobs:
         run: echo "$HOME/.rye/shims" >> $GITHUB_PATH
 
       - name: Sync Python dependencies (via rye)
-        run: cd packages/py-client && rye sync
+        run: cd packages/py-client && rye sync --no-lock
 
       - name: Install Node.js dependencies (for integration test mock server)
         run: pnpm install --frozen-lockfile

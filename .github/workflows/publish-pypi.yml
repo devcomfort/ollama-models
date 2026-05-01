@@ -20,7 +20,7 @@ jobs:
         run: |
           curl -sSf https://rye.astral.sh/get | RYE_INSTALL_OPTION="--yes" bash
           echo "$HOME/.rye/shims" >> $GITHUB_PATH
-          cd packages/py-client && rye sync
+          cd packages/py-client && rye sync --no-lock
 
       - name: Run tests
         run: cd packages/py-client && rye run pytest tests/test_client.py tests/test_types.py -v
