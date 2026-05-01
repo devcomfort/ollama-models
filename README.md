@@ -1,151 +1,148 @@
 # ollama-models
 
-API and client libraries for searching models and listing all available tags (weights) from the [Ollama](https://ollama.com) registry.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@devcomfort/ollama-models"><img src="https://img.shields.io/npm/v/@devcomfort/ollama-models?color=cb3837&label=npm" alt="npm"></a>
+  <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/v/ollama-models?color=3775A9&label=pypi" alt="PyPI"></a>
+  <a href="https://test.pypi.org/project/ollama-models/"><img src="https://img.shields.io/badge/testpypi-v0.1.1-ffc107" alt="TestPyPI"></a>
+  <a href="https://github.com/devcomfort/ollama-models/actions/workflows/ci.yml"><img src="https://github.com/devcomfort/ollama-models/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/devcomfort/ollama-models/actions/workflows/deploy.yml"><img src="https://github.com/devcomfort/ollama-models/actions/workflows/deploy.yml/badge.svg" alt="Deploy"></a>
+  <a href="https://github.com/devcomfort/ollama-models/actions/workflows/health-monitor.yml"><img src="https://github.com/devcomfort/ollama-models/actions/workflows/health-monitor.yml/badge.svg" alt="Health"></a>
+  <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/pyversions/ollama-models" alt="Python versions"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License"></a>
+</p>
 
-Ollama does not provide a public API for registry search. This project scrapes SSR HTML to return search results and model tags as structured JSON.
-
-> **Note:** This project was written with **Claude Sonnet 4.6** via [GitHub Copilot](https://github.com/features/copilot).
-
----
-
-## Structure
-
-```
-api/                      # Cloudflare Workers REST API (deployed)
-packages/
-  ts-client/              # @devcomfort/ollama-models — TypeScript/JS client
-  py-client/              # ollama-models — Python client
-```
+Search and list [Ollama](https://ollama.com) model weights programmatically. Ollama does not provide a public registry API — this project scrapes SSR HTML and exposes the data as structured JSON through a Cloudflare Workers API.
 
 ---
 
-## REST API
+## Architecture
 
-**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+```
+┌──────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  TypeScript  │────▶│  Cloudflare      │────▶│  ollama.com     │
+│  / Python    │     │  Workers API     │     │  (SSR HTML)    │
+│  Client      │◀────│  (Hono, cached)  │◀────│                 │
+└──────────────┘     └─────────────────┘     └─────────────────┘
+```
 
-### `GET /search`
-
-Returns a list of model page URLs from the Ollama search page.
-
-**Query parameters**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `q` | string | `""` | Search term (e.g. `qwen3`, `mistral`) |
-| `page` | number | `1` | Page number |
-
-**Example response**
-
-```json
-{
-  "pages": [
-    { "http_url": "https://ollama.com/library/qwen3" },
-    { "http_url": "https://ollama.com/library/qwen3-coder" }
-  ],
-  "page_id": 1,
-  "keyword": "qwen3"
-}
+```
+┌─────────────────────────────────────────────────┐
+│  GitHub Actions                                  │
+│                                                  │
+│  main push → CI (test) → Deploy (api+e2e+npm)   │
+│  cron */5  → Health Monitor → /health probe ×3  │
+│                │ structure_change?               │
+│                ▼ YES                             │
+│           Auto-Heal → OpenCode AI → fix PR       │
+│                                                  │
+│  py-v* tag → Publish to PyPI (OIDC)              │
+│  ts-v* tag → Publish to npm (NPM_TOKEN)          │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-### `GET /model`
+## Packages
 
-Returns all available tags (weights) for a model.
-
-**Query parameters**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | string | Model identifier — accepts `qwen3`, `library/qwen3`, `RogerBen/model`, or a full URL |
-
-**Example response**
-
-```json
-{
-  "model_list": [
-    { "http_url": "https://ollama.com/library/qwen3", "id": "qwen3:latest" },
-    { "http_url": "https://ollama.com/library/qwen3", "id": "qwen3:4b" },
-    { "http_url": "https://ollama.com/library/qwen3", "id": "qwen3:8b" }
-  ],
-  "default_model_id": "qwen3:latest"
-}
-```
+| Package | Install | Version |
+|---|---|---|
+| **TypeScript/JS** | `npm install @devcomfort/ollama-models` | [![npm](https://img.shields.io/npm/v/@devcomfort/ollama-models)](https://www.npmjs.com/package/@devcomfort/ollama-models) |
+| **Python** | `pip install ollama-models` | [![PyPI](https://img.shields.io/pypi/v/ollama-models)](https://pypi.org/project/ollama-models/) |
 
 ---
 
-## TypeScript Client
+## Quick Start
 
-### Installation
-
-```bash
-npm install @devcomfort/ollama-models
-# or
-pnpm add @devcomfort/ollama-models
-```
-
-### Usage
+### TypeScript
 
 ```typescript
 import { OllamaModelsClient } from '@devcomfort/ollama-models';
 
-// No base URL needed — defaults to the official hosted instance
 const client = new OllamaModelsClient();
 
-// Pass a base URL only if you self-host the API
-// const client = new OllamaModelsClient('https://your-own-instance.workers.dev');
-
-// Search for models
-const result = await client.search('qwen3', 1);
+// Search models
+const result = await client.search('qwen3');
 result.pages.forEach(p => console.log(p.http_url));
 
-// Get all tags for a model
+// List all tags for a model
 const model = await client.getModel('qwen3');
-console.log(model.default_model_id); // qwen3:latest
-model.model_list.forEach(w => console.log(w.id));
+console.log(model.default_model_id); // "qwen3:latest"
 ```
 
----
-
-## Python Client
-
-### Installation
-
-```bash
-pip install ollama-models
-```
-
-### Usage
+### Python
 
 ```python
 from ollama_models import OllamaModelsClient
 
-# No base URL needed — defaults to the official hosted instance
 client = OllamaModelsClient()
 
-# Pass a base URL only if you self-host the API
-# client = OllamaModelsClient("https://your-own-instance.workers.dev")
-
-# Search for models (sync)
+# Search models
 result = client.search("qwen3", page=1)
 for page in result.pages:
     print(page.http_url)
 
-# Get all tags for a model (sync)
+# List all tags for a model
 model = client.get_model("qwen3")
-print(model.default_model_id)  # qwen3:latest
-for w in model.model_list:
-    print(w.id)  # qwen3:latest, qwen3:4b, ...
+print(model.default_model_id)  # "qwen3:latest"
 
-# Async usage
+# Async
 import asyncio
 
 async def main():
     result = await client.search_async("qwen3")
-    model  = await client.get_model_async("qwen3")
+    model = await client.get_model_async("qwen3")
 
 asyncio.run(main())
 ```
+
+### REST API
+
+**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+
+| Endpoint | Parameters | Description |
+|---|---|---|
+| `GET /search` | `q` (string), `page` (number, default 1) | Search models |
+| `GET /model` | `name` (string) | List all tags for a model |
+| `GET /health` | — | Scraper health status |
+
+```bash
+# Search for "qwen"
+curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen"
+
+# Get all tags for qwen3
+curl "https://ollama-models-api.devcomfort.workers.dev/model?name=qwen3"
+```
+
+---
+
+## Auto-Heal Pipeline
+
+When ollama.com changes its HTML structure, scrapers break. The auto-heal pipeline detects this automatically and opens a fix PR — no human intervention needed except the final merge.
+
+```
+Cron */5 min → /health probe ×3 → structure_change?
+                                        │ YES
+                                        ▼
+                                   Triage Gate
+                                   (dedup, attempt count)
+                                        │
+                                        ▼
+                                   OpenCode AI
+                                   (visits ollama.com,
+                                    fixes selectors,
+                                    runs 79 tests)
+                                        │
+                                        ▼
+                                   Fix PR (auto-heal label)
+                                        │
+                                   Human reviews & merges
+```
+
+- **attempts 1–3**: OpenCode creates a fix PR with `auto-heal` and `attempt-N` labels
+- **attempt ≥4**: Pipeline stops auto-healing and creates a `needs-human` issue
+- **race protection**: Both health-monitor and auto-heal check for existing open PRs/issues before acting
+
+Read more in the [Auto-Heal documentation](https://ollama-models.devcomfort.workers.dev/en/auto-heal/).
 
 ---
 
@@ -160,56 +157,43 @@ asyncio.run(main())
 ### Setup
 
 ```bash
-# Install Node.js dependencies
-pnpm install
-
-# Install Python dependencies
-pnpm py:sync
+pnpm install        # Node.js dependencies
+pnpm py:sync        # Python dependencies
 ```
 
 ### Commands
 
 | Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start the Workers API local dev server |
-| `pnpm deploy` | Deploy the Workers API to Cloudflare |
-| `pnpm build` | Build the TypeScript client |
+|---|---|
+| `pnpm dev` | Start API local dev server |
+| `pnpm test` | Run all tests (TypeScript + Python) |
+| `pnpm test:api` | API unit tests only |
+| `pnpm build` | Build TypeScript client |
 | `pnpm type-check` | Type-check all TypeScript |
-| `pnpm py:build` | Build the Python package (wheel + sdist) |
-| `pnpm ts:publish` | Publish to npm |
-| `pnpm py:publish` | Publish to PyPI |
-
-### Deploying to Cloudflare Workers
-
-Set `account_id` in `api/wrangler.toml`, then:
-
-```bash
-pnpm deploy
-```
 
 ---
 
-## Type Definitions
+## Types
 
 ```typescript
 interface ModelPage {
-  http_url: string; // model page URL
+  http_url: string;
 }
 
 interface SearchResult {
   pages: ModelPage[];
-  page_id: number;  // page number
-  keyword: string;  // search term
+  page_id: number;
+  keyword: string;
 }
 
 interface ModelWeight {
-  http_url: string; // model page URL
-  id: string;       // download ID (e.g. qwen3:4b)
+  http_url: string;
+  id: string; // e.g. "qwen3:4b"
 }
 
 interface ModelList {
   model_list: ModelWeight[];
-  default_model_id: string; // default model ID
+  default_model_id: string;
 }
 ```
 
@@ -217,4 +201,4 @@ interface ModelList {
 
 ## License
 
-BSD-3-Clause
+[BSD-3-Clause](LICENSE)
