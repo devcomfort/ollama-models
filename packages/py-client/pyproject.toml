@@ -1,6 +1,6 @@
 [project]
 name = "ollama-models"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python client for the ollama-models API — search and list Ollama model weights"
 authors = [
     { name = "devcomfort", email = "im@devcomfort.me" }
