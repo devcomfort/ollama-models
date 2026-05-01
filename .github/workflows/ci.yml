@@ -111,19 +111,16 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install rye and sync dependencies
+      - name: Install Python client and test dependencies
         run: |
-          curl -sSf https://rye.astral.sh/get | RYE_INSTALL_OPTION="--yes" bash
-          echo "$HOME/.rye/shims" >> $GITHUB_PATH
-          export RYE_TOOLCHAIN="$(python3 -c 'import sys; print(sys.prefix)')"
-          rye toolchain fetch 3.12
-          cd packages/py-client && rye sync --no-lock
+          pip install packages/py-client/
+          pip install "pytest>=8.0.0" "pytest-asyncio>=0.23.0" "pytest-httpx>=0.21.0"
+
+      - name: Run Python unit tests
+        run: pytest packages/py-client/tests/test_client.py packages/py-client/tests/test_types.py -v
 
       - name: Install Node.js dependencies (for integration test mock server)
         run: pnpm install --frozen-lockfile
 
-      - name: Run Python unit tests
-        run: cd packages/py-client && rye run pytest tests/test_client.py tests/test_types.py -v
-
       - name: Run Python integration tests (against Node.js mock server)
-        run: cd packages/py-client && rye run pytest tests/test_integration.py -v
+        run: pytest packages/py-client/tests/test_integration.py -v
