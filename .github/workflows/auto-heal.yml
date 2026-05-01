@@ -22,9 +22,6 @@ concurrency:
 
 permissions:
   id-token: write
-  contents: write
-  pull-requests: write
-  issues: write
 
 env:
   # Time window for counting prior auto-heal attempts toward escalation.
@@ -149,7 +146,6 @@ jobs:
         uses: anomalyco/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: opencode-go/deepseek-v4-pro
           prompt: |
