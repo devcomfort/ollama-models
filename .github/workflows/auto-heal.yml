@@ -127,10 +127,9 @@ jobs:
         if: steps.gate.outputs.proceed == 'false'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           chmod +x scripts/notify.sh
-          ./scripts/notify.sh both critical "Auto-heal exhausted after 3 attempts" "Manual intervention required\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./scripts/notify.sh slack critical "Auto-heal exhausted after 3 attempts" "Manual intervention required\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   heal:
     needs: triage
@@ -178,7 +177,7 @@ jobs:
       - name: Notify auto-heal PR created
         if: success()
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           chmod +x scripts/notify.sh
-          ./scripts/notify.sh discord info "Auto-heal PR created" "Attempt ${{ needs.triage.outputs.attempt_number }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./scripts/notify.sh slack info "Auto-heal PR created" "Attempt ${{ needs.triage.outputs.attempt_number }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

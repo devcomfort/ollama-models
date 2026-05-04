@@ -204,10 +204,10 @@ jobs:
       - name: Notify deploy success
         if: success()
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           chmod +x scripts/notify.sh
-          ./scripts/notify.sh discord info "Deploy complete" "All checks passed\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          ./scripts/notify.sh slack info "Deploy complete" "All checks passed\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   # ─── 4. Deploy Python client ────────────────────────────────────────────────
   # PyPI publish is handled by .github/workflows/publish-pypi.yml on 'py-v*' tag
