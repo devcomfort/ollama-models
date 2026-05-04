@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { search } from '../../search/search';
+import { search } from '../../search/handler';
 import { scrapeSearchPage } from '../../search/scraper';
 
 vi.mock('../../search/scraper', () => ({

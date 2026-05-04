@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Import the function that produces the interceptor.
 // We test the interceptor's behavior, not the ci-server.ts CLI wrapper.
-import { createFetchInterceptor } from './ci-interceptor';
+import { createFetchInterceptor } from '../../testing/ci-interceptor';
 
 describe('createFetchInterceptor', () => {
   let originalFetch: typeof globalThis.fetch;

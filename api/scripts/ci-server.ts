@@ -26,7 +26,7 @@ Object.defineProperty(globalThis, 'caches', {
 
 import { serve } from '@hono/node-server';
 import { app } from '../src/index';
-import { createFetchInterceptor } from '../src/__tests__/ci-interceptor';
+import { createFetchInterceptor } from '../src/testing/ci-interceptor';
 
 const TEST_ENV = {
   OLLAMA_BASE: 'https://ollama.com',

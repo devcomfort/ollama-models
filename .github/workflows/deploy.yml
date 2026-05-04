@@ -76,6 +76,14 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+      - name: Notify deploy failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          chmod +x scripts/notify.sh
+          ./scripts/notify.sh slack critical "Deploy failed: API" "Job: ${{ github.job }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
   # ─── 2. Health check against deployed API ───────────────────────────────────
   health-check:
     name: Verify deployed API health
@@ -148,6 +156,14 @@ jobs:
           chmod +x scripts/e2e.sh
           ./scripts/e2e.sh "$API_URL"
 
+      - name: Notify E2E failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          chmod +x scripts/notify.sh
+          ./scripts/notify.sh slack critical "E2E tests failed" "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
   # ─── 4. Deploy TypeScript client ────────────────────────────────────────────
   deploy-ts-client:
     name: Publish TS client to npm
@@ -184,6 +200,14 @@ jobs:
         run: pnpm --filter @devcomfort/ollama-models publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Notify deploy success
+        if: success()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          chmod +x scripts/notify.sh
+          ./scripts/notify.sh discord info "Deploy complete" "All checks passed\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   # ─── 4. Deploy Python client ────────────────────────────────────────────────
   # PyPI publish is handled by .github/workflows/publish-pypi.yml on 'py-v*' tag

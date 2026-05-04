@@ -30,6 +30,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Probe /health (3 attempts, 5s apart, only on structure_change)
         id: probe
         env:
@@ -139,3 +141,11 @@ jobs:
             -f detected_at="${{ github.event.repository.updated_at }}" \
             -f run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             -f ref="${TARGET_REF:-}"
+
+      - name: Notify structure change detected
+        if: steps.probe.outputs.trigger == 'true'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          chmod +x scripts/notify.sh
+          ./scripts/notify.sh slack warning "Health: structure_change detected" "3 consecutive probes returned structure_change\nAuto-heal triggered\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

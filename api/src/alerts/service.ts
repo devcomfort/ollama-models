@@ -1,7 +1,7 @@
 import type { AlertChannel } from './types';
-import { SlackChannel } from './adapters/slack';
-import { DiscordChannel } from './adapters/discord';
-import { EmailChannel } from './adapters/email';
+import { SlackChannel } from './channels/slack';
+import { DiscordChannel } from './channels/discord';
+import { EmailChannel } from './channels/email';
 
 /**
  * Multi-channel alert dispatch facade.
