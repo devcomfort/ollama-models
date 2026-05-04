@@ -29,6 +29,18 @@ jobs:
           pip install build
           python -m build packages/py-client/ --outdir packages/py-client/dist/
 
+      - name: Post-build smoke test (verify built wheel)
+        run: |
+          echo "=== Installing built wheel ==="
+          pip install packages/py-client/dist/*.whl
+
+          echo "=== Verifying imports and instantiation ==="
+          python -c "
+          from ollama_models import OllamaModelsClient
+          client = OllamaModelsClient()
+          print('OllamaModelsClient imported and instantiated OK')
+          "
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist
