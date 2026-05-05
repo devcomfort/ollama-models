@@ -16,7 +16,9 @@
         "py:sync": "cd packages/py-client && rye sync",
         "py:build": "cd packages/py-client && rye run python -m build",
         "py:publish": "cd packages/py-client && rye run twine upload dist/*",
-        "ts:publish": "pnpm --filter @devcomfort/ollama-models publish --access public"
+        "ts:publish": "pnpm --filter @devcomfort/ollama-models publish --access public",
+        "build:docs": "pnpm --filter docs build",
+        "docs:dev": "pnpm --filter docs dev"
     },
     "pnpm": {
         "onlyBuiltDependencies": [
