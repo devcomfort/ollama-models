@@ -4,6 +4,7 @@ import os
 import subprocess
 import time
 import socket
+from pathlib import Path
 from typing import Generator
 
 import httpx
@@ -49,9 +50,7 @@ def mock_api_url() -> Generator[str, None, None]:
     if os.environ.get("SKIP_INTEGRATION"):
         pytest.skip("SKIP_INTEGRATION is set — skipping integration tests")
 
-    repo_root = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    )
+    repo_root = str(Path(__file__).resolve().parents[4])
     script = os.path.join(repo_root, "api", "scripts", "ci-server.ts")
 
     proc = subprocess.Popen(
