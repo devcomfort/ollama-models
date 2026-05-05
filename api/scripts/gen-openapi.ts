@@ -21,7 +21,7 @@ Object.defineProperty(globalThis, 'caches', {
 
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join } from 'pathe';
 import { app } from '../src/index.ts';
 
 const doc = app.getOpenAPIDocument({

@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Ollama Models API",
+    "title": "ollama-models Workers API",
     "version": "0.2.0",
     "description": "Scrapes ollama.com to expose model search and tag listing as a JSON HTTP API. Hosted on Cloudflare Workers."
   },
@@ -183,12 +183,24 @@
               "model"
             ],
             "description": "Per-scraper probe results (required) / 스크래퍼별 프로브 결과 (필수)"
+          },
+          "failure_kind": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "structure_change",
+              "upstream_down",
+              "network_error",
+              null
+            ],
+            "description": "Aggregated failure kind: the worst-case across all checks. null when all checks pass. / 집계된 실패 종류: 모든 체크 중 최악의 경우. 모든 체크 통과 시 null."
           }
         },
         "required": [
           "ok",
           "timestamp",
-          "checks"
+          "checks",
+          "failure_kind"
         ]
       },
       "CheckResult": {
@@ -205,10 +217,22 @@
           "error": {
             "type": "string",
             "description": "Stringified error message when the check failed (optional) / 체크 실패 시 문자열화된 에러 메시지 (선택)"
+          },
+          "kind": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "structure_change",
+              "upstream_down",
+              "network_error",
+              null
+            ],
+            "description": "Failure classification: structure_change (parse error from scraper), upstream_down (ollama.com non-2xx), or network_error (fetch rejection). null when successful. / 실패 분류: structure_change(스크래퍼 파싱 에러), upstream_down(ollama.com 2xx 아님), network_error(fetch 거부). 성공 시 null."
           }
         },
         "required": [
-          "ok"
+          "ok",
+          "kind"
         ]
       }
     },
