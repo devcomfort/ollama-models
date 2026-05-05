@@ -137,20 +137,4 @@ During development, a complete end-to-end test validated:
 - **API Key**: `OPENCODE_API_KEY` (GitHub secret)
 - **GitHub Token**: `GITHUB_TOKEN` (for PR creation)
 
-## Key Discoveries During Development
-
-### `curl -f` drops HTTP 503 bodies
-
-The health-monitor used `curl -fsS` which discarded the response body on HTTP 5xx. Since `/health` returns 503 with a JSON body containing `failure_kind`, dropping the body made `structure_change` indistinguishable from `api_unreachable`. Fix: remove `-f` and check `curl` exit code for transport failures.
-
-### Repo-level PR permission
-
-Even with `pull-requests: write` in the workflow, the repository setting "Allow GitHub Actions to create and approve pull requests" must be enabled. Without it, `gh pr create` fails with a permissions error.
-
-### OpenCode branch selection
-
-Auto-heal checks out the default branch by default. For e2e testing with intentionally broken selectors, a `ref` input was added so the workflow can checkout a specific test branch.
-
-### Opportunistic improvements
-
 During e2e testing, OpenCode proactively updated both the search scraper (`a.group.w-full`) and the model scraper (`a[class*="flex flex-col"]` → `a[href^="/"][href*=":"]`), improving robustness beyond the originally broken selector.

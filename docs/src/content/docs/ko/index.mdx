@@ -53,16 +53,17 @@ result = client.search("qwen3", page=1)
 ## 프로젝트 구조
 
 ```
-api/                      # Cloudflare Workers REST API
+api/                      # Cloudflare Workers REST API (Hono)
+  src/routes/             # HTTP 라우트 정의
+  src/search/             # 검색 스크래퍼 + 핸들러
+  src/model/              # 모델 스크래퍼
+  src/alerts/channels/    # Slack / Discord / Email 어댑터
+  src/lib/                # Cache, fetchWithRetry 유틸리티
 packages/
   ts-client/              # @devcomfort/ollama-models (NPM)
   py-client/              # ollama-models (PyPI)
+docs/                     # Astro Starlight 문서 사이트
+scripts/                  # CI/CD: notify.sh, smoke-ts-client.sh, e2e.sh
 ```
 
-## 버전
-
-현재 API 버전: **v0.2.0**
-
-## 라이선스
-
-BSD-3-Clause
+## 프로젝트 구조

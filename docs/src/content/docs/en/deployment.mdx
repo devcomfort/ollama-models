@@ -122,20 +122,31 @@ On each cron tick, `runHealthCheck()` probes both scrapers. If any probe fails, 
 ### Pull Request Workflow
 
 ```yaml
-# ci.yml
-- Install dependencies (pnpm install)
-- Run unit tests (pnpm test)
-- Run integration tests (pnpm test:api, pnpm test:ts, pnpm test:py)
+# ci.yml — runs on every push and PR
+- API: pnpm test:api (89 unit + integration tests)
+- TS client: pnpm test:ts (28 tests) + smoke test
+- Python: pytest (31 unit) + 8 integration tests
 ```
 
 ### Deploy Workflow
 
 ```yaml
-# deploy.yml (triggered on main push)
-- Deploy API (pnpm deploy)
-- Run health check against deployed instance
-- Run E2E tests (./scripts/e2e.sh)
-- Publish packages (npm, PyPI)
+# deploy.yml — triggered on main push (api/, packages/, docs/, scripts/)
+- deploy-api     → Deploy to Cloudflare Workers
+- health-check   → Probe /health, /search, /model
+- e2e            → Full E2E suite (23 tests)
+- deploy-docs    → Build Astro → Deploy to Cloudflare Pages
+- deploy-ts-client → Test → Build → Smoke test → Publish to npm
+- deploy-py-client → Handled by publish-pypi.yml on py-v* tag
 ```
 
-The deploy workflow only triggers when code files change — documentation-only commits skip deployment.
+All failures are reported via [Slack notifications](#notifications). Documentation-only commits skip deployment.
+
+### Local Development
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start API local dev server |
+| `pnpm docs:dev` | Start docs site locally |
+| `pnpm build:docs` | Build documentation site |
+| `pnpm type-check` | Type-check all TypeScript |

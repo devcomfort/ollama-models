@@ -53,16 +53,17 @@ result = client.search("qwen3", page=1)
 ## Project Structure
 
 ```
-api/                      # Cloudflare Workers REST API
+api/                      # Cloudflare Workers REST API (Hono)
+  src/routes/             # HTTP route definitions
+  src/search/             # Search scraper + handler
+  src/model/              # Model scraper
+  src/alerts/channels/    # Slack / Discord / Email adapters
+  src/lib/                # Cache, fetchWithRetry utilities
 packages/
   ts-client/              # @devcomfort/ollama-models (NPM)
   py-client/              # ollama-models (PyPI)
+docs/                     # Astro Starlight documentation site
+scripts/                  # CI/CD: notify.sh, smoke-ts-client.sh, e2e.sh
 ```
 
-## Version
-
-Current API version: **v0.2.0**
-
-## License
-
-BSD-3-Clause
+## Project Structure

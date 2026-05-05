@@ -22,15 +22,7 @@ Cache invalidation is purely time-based — no manual invalidation mechanism exi
 3. **Route handler layer** — `try/catch` wraps each handler. Scraper errors map to structured `ErrorResponse` with appropriate HTTP status codes.
 4. **Alert layer** — On scraper failure, `AlertService` fires webhook notifications via `Promise.allSettled`. Alert failures are silently swallowed.
 
-### Error Codes
-
-| Code | HTTP Status | Trigger |
-|------|-------------|---------|
-| `INVALID_PARAMETER` | 400 | Query parameter validation failed. |
-| `SCRAPE_PARSE_ERROR` | 502 | HTML parsing failed (selector returned 0 elements). |
-| `SCRAPE_UPSTREAM_ERROR` | 502 | Request to ollama.com failed. |
-| `SCRAPE_NO_RESULTS` | 502 | Scrape succeeded but returned no data. |
-| `INTERNAL_ERROR` | 500 | Unexpected server error. |
+See [API Endpoints](/api-reference/#error-codes) for the full error code reference.
 
 ## Alert System
 
@@ -70,11 +62,4 @@ Never reimplement route handlers, middleware, or validation logic in a mock serv
 | Why real scrapers in E2E? | Must detect when ollama.com changes their DOM. |
 | Why bash for E2E? | Zero dependencies — works in any CI image with `curl` + `python3`. |
 
-## CI/CD Pipeline
-
-```
-Pull Request → ci.yml (unit + integration) → merge
-Main push    → deploy.yml (deploy-api → health-check → e2e → publish)
-```
-
-The `deploy.yml` workflow only runs when code files change (`paths` filter excludes `*.md` and `openapi.json`).
+See [Deployment](/deployment/#cicd) for the full CI/CD pipeline details.

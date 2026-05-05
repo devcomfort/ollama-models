@@ -122,20 +122,31 @@ crons = ["0 * * * *"]
 ### Pull Request 워크플로우
 
 ```yaml
-# ci.yml
-- 의존성 설치 (pnpm install)
-- 유닛 테스트 실행 (pnpm test)
-- 통합 테스트 실행 (pnpm test:api, pnpm test:ts, pnpm test:py)
+# ci.yml — 모든 push와 PR에서 실행
+- API: pnpm test:api (89개 유닛 + 통합 테스트)
+- TS 클라이언트: pnpm test:ts (28개 테스트) + smoke test
+- Python: pytest (31개 유닛) + 8개 통합 테스트
 ```
 
 ### 배포 워크플로우
 
 ```yaml
-# deploy.yml (main push 시 트리거)
-- API 배포 (pnpm deploy)
-- 배포된 인스턴스에 대해 헬스 체크 실행
-- E2E 테스트 실행 (./scripts/e2e.sh)
-- 패키지 퍼블리시 (npm, PyPI)
+# deploy.yml — main push 시 트리거 (api/, packages/, docs/, scripts/)
+- deploy-api        → Cloudflare Workers에 배포
+- health-check      → /health, /search, /model 프로브
+- e2e               → 전체 E2E 스위트 (23개 테스트)
+- deploy-docs       → Astro 빌드 → Cloudflare Pages에 배포
+- deploy-ts-client  → 테스트 → 빌드 → Smoke test → npm에 배포
+- deploy-py-client  → publish-pypi.yml이 py-v* 태그에서 처리
 ```
 
-배포 워크플로우는 코드 파일이 변경되었을 때만 트리거됩니다 — 문서 전용 커밋은 배포를 건너뜁니다.
+모든 실패는 [Slack 알림](#알림)으로 전달됩니다. 문서 전용 커밋은 배포를 건너뜁니다.
+
+### 로컬 개발
+
+| 명령어 | 설명 |
+|---------|-------------|
+| `pnpm dev` | API 로컬 개발 서버 시작 |
+| `pnpm docs:dev` | 문서 사이트 로컬 실행 |
+| `pnpm build:docs` | 문서 사이트 빌드 |
+| `pnpm type-check` | 전체 TypeScript 타입 체크 |

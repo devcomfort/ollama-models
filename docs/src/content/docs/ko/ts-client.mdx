@@ -100,37 +100,4 @@ if (!status.ok) {
 
 ## 타입 정의
 
-```typescript
-interface SearchResult {
-  pages: ModelPage[];
-  page_range: number | { from: number; to: number };
-  keyword: string;
-}
-
-interface ModelPage {
-  http_url: string;
-  model_id: string;
-}
-
-interface ModelTags {
-  page_url: string;
-  id: string;
-  tags: string[];
-  default_tag: string | null;
-}
-
-interface HealthStatus {
-  ok: boolean;
-  timestamp: string;
-  checks: {
-    search: CheckResult;
-    model: CheckResult;
-  };
-}
-
-interface CheckResult {
-  ok: boolean;
-  count?: number;
-  error?: string;
-}
-```
+전체 타입 스키마는 [API 레퍼런스](/api-reference/)를 참조하세요.

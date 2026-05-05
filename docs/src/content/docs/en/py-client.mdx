@@ -89,25 +89,4 @@ Asynchronous model tag retrieval.
 
 ## Type Definitions
 
-```python
-from dataclasses import dataclass
-from typing import List, Optional
-
-@dataclass
-class ModelPage:
-    http_url: str
-    model_id: str
-
-@dataclass
-class SearchResult:
-    pages: List[ModelPage]
-    page_range: int  # or {from, to} dict for multi-page
-    keyword: str
-
-@dataclass
-class ModelTags:
-    page_url: str
-    id: str
-    tags: List[str]
-    default_tag: Optional[str]
-```
+See [API Reference](/api-reference/) for the complete type schema.
