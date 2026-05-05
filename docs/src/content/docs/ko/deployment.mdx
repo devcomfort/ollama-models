@@ -44,14 +44,67 @@ pnpm deploy
 
 ## 시크릿
 
-알림용 웹훅 URL은 Cloudflare Workers 시크릿으로 저장됩니다:
+### Cloudflare Workers (런타임 알림)
+
+Worker는 스크래퍼 실패 시 알림을 전송합니다. 채널별로 별도 시크릿을 사용합니다:
 
 ```bash
-# 알림 웹훅 URL 설정 (Slack, Discord 또는 이메일)
-wrangler secret put ALERT_WEBHOOK_URL --config api/wrangler.toml
+wrangler secret put SLACK_WEBHOOK_URL --config api/wrangler.toml
+wrangler secret put DISCORD_WEBHOOK_URL --config api/wrangler.toml
+wrangler secret put EMAIL_WEBHOOK_URL --config api/wrangler.toml
 ```
 
 시크릿은 암호화되며 `wrangler.toml`이나 버전 관리에 나타나지 않습니다.
+
+### GitHub Actions (CI/CD 알림)
+
+동일한 웹훅 URL을 GitHub Actions 알림에 사용합니다. [저장소 시크릿](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository)으로 설정하세요:
+
+```bash
+gh secret set SLACK_WEBHOOK_URL --body "https://hooks.slack.com/services/T.../B.../..." -R devcomfort/ollama-models
+```
+
+### Slack 웹훅 생성 방법
+
+1. [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
+2. 이름 입력 (예: `ollama-models`), 워크스페이스 선택
+3. 사이드바 → **Incoming Webhooks** → **Activate** 활성화
+4. **Add New Webhook to Workspace** 클릭, 채널 선택
+5. 생성된 URL 복사 (`https://hooks.slack.com/services/T.../B.../...`)
+
+## 알림
+
+프로젝트는 `scripts/notify.sh`를 통합 알림 파사드로 사용합니다 — Cloudflare Workers(`AlertService`)와 GitHub Actions 워크플로우에서 동일한 스크립트를 호출합니다.
+
+### Slack 형식
+
+메시지는 [Block Kit](https://api.slack.com/reference/block-kit/blocks)을 사용하며:
+- 심각도에 따른 색상 사이드바 (`critical` 빨강, `warning` 노랑, `info` 초록)
+- Job, 브랜치, 실행 링크를 포함한 컨텍스트 푸터
+
+### 알림 발생 지점
+
+| 워크플로우 | 트리거 | 심각도 |
+|------------|--------|--------|
+| `deploy.yml` | API 배포 실패 | critical |
+| `deploy.yml` | E2E 테스트 실패 | critical |
+| `deploy.yml` | 전체 배포 성공 | info |
+| `health-monitor.yml` | `structure_change` 3회 감지 | warning |
+| `auto-heal.yml` | 3회 시도 후 에스컬레이션 | critical |
+| `auto-heal.yml` | auto-heal PR 생성 | info |
+| `ci.yml` | `main` 브랜치 테스트 실패 | critical |
+
+## 환경 변수
+
+| 변수 | 목적 | 설정 방법 |
+|------|------|-----------|
+| `OLLAMA_BASE` | ollama.com 스크래핑용 Base URL | `wrangler.toml` `[vars]` |
+| `OLLAMA_USER_AGENT` | 업스트림 요청용 User-Agent 헤더 | `wrangler.toml` `[vars]` |
+| `OLLAMA_ACCEPT` | 업스트림 요청용 Accept 헤더 | `wrangler.toml` `[vars]` |
+| `OLLAMA_ACCEPT_LANGUAGE` | 업스트림 요청용 Accept-Language 헤더 | `wrangler.toml` `[vars]` |
+| `SLACK_WEBHOOK_URL` | 알림용 Slack 웹훅 | Wrangler 시크릿 + GitHub 시크릿 |
+| `DISCORD_WEBHOOK_URL` | 알림용 Discord 웹훅 | Wrangler 시크릿 |
+| `EMAIL_WEBHOOK_URL` | 알림용 이메일 웹훅 | Wrangler 시크릿 |
 
 ## Cron 트리거
 
@@ -62,17 +115,7 @@ Worker는 매시간 예약된 헬스 체크를 실행합니다:
 crons = ["0 * * * *"]
 ```
 
-각 cron 틱마다 `runHealthCheck()`가 두 스크래퍼를 프로브합니다. 프로브가 실패하면 설정된 웹훅 URL로 알림이 전송됩니다.
-
-## 환경 변수
-
-| 변수 | 목적 | 기본값 |
-|----------|---------|---------|
-| `OLLAMA_BASE` | ollama.com 스크래핑용 Base URL | `https://ollama.com` |
-| `OLLAMA_USER_AGENT` | 업스트림 요청용 User-Agent 헤더 | `ollama-models-api/0.1 (+https://github.com/devcomfort/ollama-models)` |
-| `OLLAMA_ACCEPT` | 업스트림 요청용 Accept 헤더 | `text/html,application/xhtml+xml` |
-| `OLLAMA_ACCEPT_LANGUAGE` | 업스트림 요청용 Accept-Language 헤더 | `en-US,en;q=0.9` |
-| `ALERT_WEBHOOK_URL` | 실패 알림용 웹훅 URL (시크릿) | 설정 안 함 |
+각 cron 틱마다 `runHealthCheck()`가 두 스크래퍼를 프로브합니다. 프로브가 실패하면 설정된 웹훅 채널로 알림이 전송됩니다.
 
 ## CI/CD
 

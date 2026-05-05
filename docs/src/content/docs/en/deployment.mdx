@@ -44,14 +44,67 @@ This runs `wrangler deploy` from the `api/` directory. Wrangler transpiles TypeS
 
 ## Secrets
 
-Webhook URLs for alerts are stored as Cloudflare Workers secrets:
+### Cloudflare Workers (runtime alerts)
+
+The Worker sends alerts when scrapers fail. Each channel has its own secret:
 
 ```bash
-# Set the alert webhook URL (Slack, Discord, or email)
-wrangler secret put ALERT_WEBHOOK_URL --config api/wrangler.toml
+wrangler secret put SLACK_WEBHOOK_URL --config api/wrangler.toml
+wrangler secret put DISCORD_WEBHOOK_URL --config api/wrangler.toml
+wrangler secret put EMAIL_WEBHOOK_URL --config api/wrangler.toml
 ```
 
 Secrets are encrypted and never appear in `wrangler.toml` or version control.
+
+### GitHub Actions (CI/CD notifications)
+
+The same webhook URLs are used for GitHub Actions notifications. Set them as [repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository):
+
+```bash
+gh secret set SLACK_WEBHOOK_URL --body "https://hooks.slack.com/services/T.../B.../..." -R devcomfort/ollama-models
+```
+
+### Creating a Slack Webhook
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
+2. Name it (e.g., `ollama-models`), pick a workspace
+3. Sidebar → **Incoming Webhooks** → toggle **Activate**
+4. Click **Add New Webhook to Workspace**, pick a channel
+5. Copy the generated URL (`https://hooks.slack.com/services/T.../B.../...`)
+
+## Notifications
+
+The project uses `scripts/notify.sh` as a unified alerting facade — the same script runs in both Cloudflare Workers (via `AlertService`) and GitHub Actions workflows.
+
+### Slack format
+
+Messages use [Block Kit](https://api.slack.com/reference/block-kit/blocks) with:
+- Severity-colored sidebar (red for `critical`, yellow for `warning`, green for `info`)
+- Context footer showing job, branch, and a link to the run
+
+### Notification points
+
+| Workflow | Trigger | Severity |
+|----------|---------|----------|
+| `deploy.yml` | API deploy failed | critical |
+| `deploy.yml` | E2E tests failed | critical |
+| `deploy.yml` | Full deploy succeeded | info |
+| `health-monitor.yml` | `structure_change` detected (3x) | warning |
+| `auto-heal.yml` | Escalation after 3 attempts | critical |
+| `auto-heal.yml` | PR created by auto-heal | info |
+| `ci.yml` | Test failure on `main` | critical |
+
+## Environment Variables
+
+| Variable | Purpose | Set via |
+|----------|---------|--------|
+| `OLLAMA_BASE` | Base URL for ollama.com scraping | `wrangler.toml` `[vars]` |
+| `OLLAMA_USER_AGENT` | User-Agent header for upstream requests | `wrangler.toml` `[vars]` |
+| `OLLAMA_ACCEPT` | Accept header for upstream requests | `wrangler.toml` `[vars]` |
+| `OLLAMA_ACCEPT_LANGUAGE` | Accept-Language header for upstream requests | `wrangler.toml` `[vars]` |
+| `SLACK_WEBHOOK_URL` | Slack webhook for alerts | Wrangler secret + GitHub secret |
+| `DISCORD_WEBHOOK_URL` | Discord webhook for alerts | Wrangler secret |
+| `EMAIL_WEBHOOK_URL` | Email webhook for alerts | Wrangler secret |
 
 ## Cron Triggers
 
@@ -62,17 +115,7 @@ The Worker runs a scheduled health check every hour:
 crons = ["0 * * * *"]
 ```
 
-On each cron tick, `runHealthCheck()` probes both scrapers. If any probe fails, an alert is sent to the configured webhook URL.
-
-## Environment Variables
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `OLLAMA_BASE` | Base URL for ollama.com scraping | `https://ollama.com` |
-| `OLLAMA_USER_AGENT` | User-Agent header for upstream requests | `ollama-models-api/0.1 (+https://github.com/devcomfort/ollama-models)` |
-| `OLLAMA_ACCEPT` | Accept header for upstream requests | `text/html,application/xhtml+xml` |
-| `OLLAMA_ACCEPT_LANGUAGE` | Accept-Language header for upstream requests | `en-US,en;q=0.9` |
-| `ALERT_WEBHOOK_URL` | Webhook URL for failure alerts (secret) | Not set |
+On each cron tick, `runHealthCheck()` probes both scrapers. If any probe fails, an alert is sent via the configured webhook channels.
 
 ## CI/CD
 
