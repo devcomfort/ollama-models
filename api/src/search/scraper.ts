@@ -1,5 +1,6 @@
 import { parse } from 'node-html-parser';
 import { UpstreamError, ParseError } from '../errors';
+import { fetchWithRetry } from '../lib/fetch';
 import type { ModelPage } from './types';
 
 interface Env {
@@ -44,7 +45,7 @@ export async function scrapeSearchPage(page: number, keyword: string, env: Env):
   searchUrl.searchParams.set('page', String(page));
   if (keyword.trim()) searchUrl.searchParams.set('q', keyword.trim());
 
-  const res = await fetch(searchUrl.toString(), {
+  const res = await fetchWithRetry(searchUrl.toString(), {
     headers: {
       'User-Agent': env.OLLAMA_USER_AGENT,
       Accept: env.OLLAMA_ACCEPT,

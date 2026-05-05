@@ -1,5 +1,6 @@
 import { parse } from 'node-html-parser';
 import { UpstreamError, ParseError } from '../errors';
+import { fetchWithRetry } from '../lib/fetch';
 import type { ModelPage } from '../search/types';
 import type { ModelTags } from './types';
 
@@ -45,7 +46,7 @@ export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelT
 
   const tagsUrl = `${page.http_url}/tags`;
 
-  const res = await fetch(tagsUrl, {
+  const res = await fetchWithRetry(tagsUrl, {
     headers: {
       'User-Agent': env.OLLAMA_USER_AGENT,
       Accept: env.OLLAMA_ACCEPT,

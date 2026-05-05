@@ -374,6 +374,9 @@ __marimo__/
 # tsup / tsc build output
 dist/
 
+# Astro build cache
+.astro/
+
 # Temp (system)
 .temp/
 
