@@ -20,7 +20,7 @@ EXPECTED="OllamaModelsClient assertCheckResult assertHealthStatus assertModelPag
 echo "=== CJS smoke test ==="
 export EXPECTED_EXPORTS="${EXPECTED}"
 node -e "
-const mod = require('./${DIST_DIR}/index.js');
+const mod = require('./${DIST_DIR}/index.cjs');
 const exportKeys = Object.keys(mod).sort();
 const expected = process.env.EXPECTED_EXPORTS.split(' ').sort();
 
@@ -61,7 +61,7 @@ console.log('ESM: client instantiated OK');
 
 # ─── DTS: verify .d.ts file exists and contains all public exports ────────────
 echo "=== DTS check ==="
-DTS="${DIST_DIR}/index.d.ts"
+DTS="${DIST_DIR}/index.d.cts"
 [ -s "$DTS" ] || { echo "ERROR: ${DTS} missing or empty"; exit 3; }
 for name in ${EXPECTED}; do
   grep -q "export.*${name}" "$DTS" || { echo "ERROR: ${DTS} missing export: ${name}"; exit 3; }
