@@ -16,13 +16,13 @@ importers:
     dependencies:
       '@hono/zod-openapi':
         specifier: ^1.2.4
-        version: 1.3.0(hono@4.12.16)(zod@4.4.1)
+        version: 1.3.0(hono@4.12.18)(zod@4.4.1)
       es-toolkit:
         specifier: ^1.45.1
         version: 1.46.1
       hono:
-        specifier: ^4.12.12
-        version: 4.12.16
+        specifier: ^4.12.18
+        version: 4.12.18
       node-html-parser:
         specifier: ^7.1.0
         version: 7.1.0
@@ -35,7 +35,7 @@ importers:
         version: 4.20260430.1
       '@hono/node-server':
         specifier: ^1.19.13
-        version: 1.19.14(hono@4.12.16)
+        version: 1.19.14(hono@4.12.18)
       '@types/node':
         specifier: ^25.5.2
         version: 25.6.0
@@ -1266,6 +1266,7 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@vitest/expect@2.1.9':
     resolution: {integrity: sha512-UJCIkTBenHeKT1TTlKMJWy1laZewsRIzYighyYiJKZreqtdxSos/S1t+ktRMQWu2CKqaarrkeszJx1cgC5tGZw==}
@@ -1731,8 +1732,8 @@ packages:
     resolution: {integrity: sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==}
     hasBin: true
 
-  hono@4.12.16:
-    resolution: {integrity: sha512-jN0ZewiNAWSe5khM3EyCmBb250+b40wWbwNILNfEvq84VREWwOIkuUsFONk/3i3nqkz7Oe1PcpM2mwQEK2L9Kg==}
+  hono@4.12.18:
+    resolution: {integrity: sha512-RWzP96k/yv0PQfyXnWjs6zot20TqfpfsNXhOnev8d1InAxubW93L11/oNUc3tQqn2G0bSdAOBpX+2uDFHV7kdQ==}
     engines: {node: '>=16.9.0'}
 
   hookable@6.1.1:
@@ -3209,21 +3210,21 @@ snapshots:
     dependencies:
       '@expressive-code/core': 0.41.7
 
-  '@hono/node-server@1.19.14(hono@4.12.16)':
+  '@hono/node-server@1.19.14(hono@4.12.18)':
     dependencies:
-      hono: 4.12.16
+      hono: 4.12.18
 
-  '@hono/zod-openapi@1.3.0(hono@4.12.16)(zod@4.4.1)':
+  '@hono/zod-openapi@1.3.0(hono@4.12.18)(zod@4.4.1)':
     dependencies:
       '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.1)
-      '@hono/zod-validator': 0.7.6(hono@4.12.16)(zod@4.4.1)
-      hono: 4.12.16
+      '@hono/zod-validator': 0.7.6(hono@4.12.18)(zod@4.4.1)
+      hono: 4.12.18
       openapi3-ts: 4.5.0
       zod: 4.4.1
 
-  '@hono/zod-validator@0.7.6(hono@4.12.16)(zod@4.4.1)':
+  '@hono/zod-validator@0.7.6(hono@4.12.18)(zod@4.4.1)':
     dependencies:
-      hono: 4.12.16
+      hono: 4.12.18
       zod: 4.4.1
 
   '@img/colour@1.1.0': {}
@@ -4396,7 +4397,7 @@ snapshots:
 
   he@1.2.0: {}
 
-  hono@4.12.16: {}
+  hono@4.12.18: {}
 
   hookable@6.1.1: {}
 
