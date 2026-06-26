@@ -1,6 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
 import { scrapeModelPage } from '../model/scraper';
-import { createAlertService } from '../alerts/service';
 import {
   ModelQuerySchema,
   ModelTagsSchema,
@@ -80,24 +79,15 @@ export const modelHandler = async (c: any) => {
     const isParseError = err instanceof ParseError;
     const scrapeUrl = `${c.env.OLLAMA_BASE}/${path}/tags`;
 
-    const alertService = createAlertService(c.env);
-    await alertService.send('critical', 'Model Tag Lookup Failed', [
-      `*Time:* ${new Date().toISOString()}`,
-      ``,
-      `A user request to fetch tags for a specific model failed. The scraper could not parse the Ollama model tags page.`,
-      ``,
-      `*Request:* \`GET /model?name=${name}\``,
-      `*Scraped URL:* <${scrapeUrl}|${scrapeUrl}>`,
-      ``,
-      `*Error:*`,
-      `\`${errStr}\``,
-      ``,
-      `─────────────────────────────`,
-      `📍 *Where to check:*`,
-      `• *Ollama model tags page* (open and verify it loads): <${scrapeUrl}|${scrapeUrl}>`,
-      `• *Scraper code*: \`api/src/model/scraper.ts\` → \`scrapeModelPage()\` — check CSS selectors`,
-      `• *Cloudflare logs*: <https://dash.cloudflare.com/|Cloudflare dashboard> → Workers & Pages → \`ollama-models-api\` → Logs`,
-    ].join('\n'));
+    console.error(JSON.stringify({
+      level: 'error',
+      alert: 'critical',
+      title: 'Model Tag Lookup Failed',
+      timestamp: new Date().toISOString(),
+      request: `GET /model?name=${name}`,
+      scrapeUrl,
+      error: errStr,
+    }));
 
     return c.json({
       error: {

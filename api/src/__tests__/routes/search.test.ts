@@ -3,9 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../search/scraper', () => ({
   scrapeSearchPage: vi.fn(),
 }));
-vi.mock('../../alerts/service', () => ({
-  createAlertService: () => ({ send: vi.fn() }),
-}));
 
 import { app } from '../../index';
 import { scrapeSearchPage } from '../../search/scraper';

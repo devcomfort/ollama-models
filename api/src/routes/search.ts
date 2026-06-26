@@ -1,6 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
 import { scrapeSearchPage } from '../search/scraper';
-import { createAlertService } from '../alerts/service';
 import {
   SearchQuerySchema,
   SearchResultSchema,
@@ -53,24 +52,15 @@ export const searchHandler = async (c: any) => {
     const isParseError = err instanceof ParseError;
     const scrapeUrl = `${c.env.OLLAMA_BASE}/search?q=${encodeURIComponent(keyword)}&p=${page}`;
 
-    const alertService = createAlertService(c.env);
-    await alertService.send('critical', 'Model List Search Failed', [
-      `*Time:* ${new Date().toISOString()}`,
-      ``,
-      `A user request to list/search Ollama models failed. The scraper could not parse the Ollama search results page.`,
-      ``,
-      `*Request:* \`GET /search?page=${page}&q=${keyword}\``,
-      `*Scraped URL:* <${scrapeUrl}|${scrapeUrl}>`,
-      ``,
-      `*Error:*`,
-      `\`${errStr}\``,
-      ``,
-      `─────────────────────────────`,
-      `📍 *Where to check:*`,
-      `• *Ollama search page* (open and verify it loads): <${scrapeUrl}|${scrapeUrl}>`,
-      `• *Scraper code*: \`api/src/search/scraper.ts\` → \`scrapeSearchPage()\` — check CSS selectors`,
-      `• *Cloudflare logs*: <https://dash.cloudflare.com/|Cloudflare dashboard> → Workers & Pages → \`ollama-models-api\` → Logs`,
-    ].join('\n'));
+    console.error(JSON.stringify({
+      level: 'error',
+      alert: 'critical',
+      title: 'Model List Search Failed',
+      timestamp: new Date().toISOString(),
+      request: `GET /search?page=${page}&q=${keyword}`,
+      scrapeUrl,
+      error: errStr,
+    }));
 
     return c.json({
       error: {

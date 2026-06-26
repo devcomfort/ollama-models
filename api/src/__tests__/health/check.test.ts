@@ -3,7 +3,6 @@ import {
   createProbeModel,
   PROBE_KEYWORD,
   runHealthCheck,
-  buildHealthAlertMessage,
 } from '../../health/check';
 import { UpstreamError, ParseError } from '../../errors';
 
@@ -180,100 +179,3 @@ describe('runHealthCheck', () => {
   });
 });
 
-// === buildHealthAlertMessage ===
-// 검증 범위:
-// - 실패한 check에 ❌ 표시와 에러 메시지가 포함되는가.
-// - 통과한 check에 ✅ 표시와 count가 포함되는가.
-// - PROBE_KEYWORD와 probeModel.model_id가 메시지에 포함되는가.
-// - timestamp가 메시지에 포함되는가.
-
-describe('buildHealthAlertMessage', () => {
-  const probeModel = createProbeModel(TEST_ENV);
-
-  // Q. 실패한 search check에 ❌와 에러 메시지가 포함되는가?
-  it('includes ❌ and error message for a failed search check', () => {
-    const status = {
-      ok: false,
-      timestamp: '2024-01-01T00:00:00.000Z',
-      checks: {
-        search: { ok: false, error: 'selector broken', kind: 'structure_change' },
-        model: { ok: true, count: 5, kind: null },
-      },
-      failure_kind: 'structure_change',
-    } as const;
-
-    const msg = buildHealthAlertMessage(status, TEST_ENV, probeModel);
-
-    expect(msg).toContain('❌');
-    expect(msg).toContain('selector broken');
-  });
-
-  // Q. 통과한 model check에 ✅와 count가 포함되는가?
-  it('포함되는가? ✅와 count가 통과한 model check에', () => {
-    const status = {
-      ok: false,
-      timestamp: '2024-01-01T00:00:00.000Z',
-      checks: {
-        search: { ok: false, error: 'err', kind: 'network_error' },
-        model: { ok: true, count: 5, kind: null },
-      },
-      failure_kind: 'network_error',
-    } as const;
-
-    const msg = buildHealthAlertMessage(status, TEST_ENV, probeModel);
-
-    expect(msg).toContain('✅');
-    expect(msg).toContain('5');
-  });
-
-  // Q. PROBE_KEYWORD가 메시지에 포함되는가?
-  it('PROBE_KEYWORD가 메시지에 포함되는가', () => {
-    const status = {
-      ok: false,
-      timestamp: '2024-01-01T00:00:00.000Z',
-      checks: {
-        search: { ok: false, error: 'err', kind: 'upstream_down' },
-        model: { ok: false, error: 'err', kind: 'network_error' },
-      },
-      failure_kind: 'upstream_down',
-    } as const;
-
-    const msg = buildHealthAlertMessage(status, TEST_ENV, probeModel);
-
-    expect(msg).toContain(PROBE_KEYWORD);
-  });
-
-  // Q. timestamp가 메시지에 포함되는가?
-  it('timestamp가 메시지에 포함되는가', () => {
-    const status = {
-      ok: false,
-      timestamp: '2024-01-01T00:00:00.000Z',
-      checks: {
-        search: { ok: false, error: 'err', kind: 'structure_change' },
-        model: { ok: false, error: 'err', kind: 'structure_change' },
-      },
-      failure_kind: 'structure_change',
-    } as const;
-
-    const msg = buildHealthAlertMessage(status, TEST_ENV, probeModel);
-
-    expect(msg).toContain('2024-01-01T00:00:00.000Z');
-  });
-
-  // Q. 두 check 모두 실패했을 때 에러가 없으면 '0개 결과' 문구가 포함되는가?
-  it('두 check 모두 실패했을 때 에러가 없으면 "0개 결과" 문구가 포함되는가', () => {
-    const status = {
-      ok: false,
-      timestamp: '2024-01-01T00:00:00.000Z',
-      checks: {
-        search: { ok: false, kind: null },
-        model: { ok: false, kind: null },
-      },
-      failure_kind: null,
-    } as const;
-
-    const msg = buildHealthAlertMessage(status, TEST_ENV, probeModel);
-
-    expect(msg).toContain('returned 0 results');
-  });
-});
