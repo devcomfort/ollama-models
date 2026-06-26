@@ -26,10 +26,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm --filter @devcomfort/ollama-models test
-
+        run: npx nx test ts-client
       - name: Build
-        run: pnpm --filter @devcomfort/ollama-models build
+        run: npx nx build ts-client
 
       - name: Post-build smoke test (verify built artifact)
         run: chmod +x scripts/smoke-ts-client.sh && ./scripts/smoke-ts-client.sh

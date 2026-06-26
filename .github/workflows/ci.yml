@@ -61,10 +61,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Type-check API
-        run: pnpm --filter ollama-models-api type-check
-
+        run: npx nx type-check api
       - name: Run API unit tests
-        run: pnpm --filter ollama-models-api test
+        run: npx nx test api
 
       - name: Notify CI failure
         if: failure() && github.ref == 'refs/heads/main'
@@ -93,12 +92,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Type-check TS client
-        run: pnpm --filter @devcomfort/ollama-models type-check
-
+        run: npx nx type-check ts-client
       # Runs unit tests (mocked fetch) AND integration tests (routed through
       # the Hono app via vi.stubGlobal) in a single vitest pass.
       - name: Run TS client tests (unit + integration)
-        run: pnpm --filter @devcomfort/ollama-models test
+        run: npx nx test ts-client
 
   # ─── Python client: unit tests + integration tests ───────────────────────────
   py-client:
