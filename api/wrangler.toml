@@ -1,9 +1,7 @@
 name = "ollama-models-api"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
-
-# Uncomment and fill in your account_id before deploying:
-account_id = "8e04cab5daaf42d690fce67e4dca6d78"
+# account_id is provided via CLOUDFLARE_API_TOKEN or --account-id flag at deploy time.
 
 [vars]
 OLLAMA_BASE = "https://ollama.com"
