@@ -1,33 +1,31 @@
-# Sequential Deploy Pipeline
+# Sequential Deploy Pipeline (Staging → Production)
 #
 # Purpose
 # ───────
-# Deploys the API, verifies it is healthy, then deploys both clients.
-# This sequential design ensures that client packages never ship against
-# a broken or unreachable API endpoint.
+# Deploys the API to staging first, verifies it, then promotes to production.
+# This ensures production never receives untested code.
 #
-#   1. deploy-api       — Deploy the Cloudflare Workers API via wrangler.
-#   2. health-check     — Hit the live /health endpoint and fail the pipeline
-#                         if any probe is not ok.
-#   3. e2e              — Run the full E2E test suite against the deployed API.
-#   4. deploy-ts-client — Publish @devcomfort/ollama-models to npm.
-#   5. deploy-py-client — Publish ollama-models to PyPI (via OIDC).
+#   1. deploy-staging    — Deploy to Cloudflare Workers staging environment.
+#   2. verify-staging    — Health check + smoke tests against staging.
+#   3. deploy-production — Promote to production (only if staging passes).
+#   4. e2e               — Run the full E2E suite against production.
+#   5. deploy-ts-client  — Publish @devcomfort/ollama-models to npm.
+#   6. deploy-py-client  — Publish ollama-models to PyPI (via OIDC).
 #
 # Triggered manually via workflow_dispatch or on pushes to main that touch
 # api/, packages/ts-client/, or packages/py-client/.
 #
 # 목적
 # ────
-# API를 배포하고 정상 동작을 확인한 뒤 클라이언트를 배포한다.
-# 순차 설계로 클라이언트 패키지가 깨지거나 도달 불가능한 API 엔드포인트를
-# 향해 출시되지 않도록 보장한다.
+# API를 스테이징에 먼저 배포하고 검증한 뒤 프로덕션으로 승격한다.
+# 프로덕션에 테스트되지 않은 코드가 배포되지 않도록 보장한다.
 #
-#   1. deploy-api       — wrangler로 Cloudflare Workers API 배포.
-#   2. health-check     — 라이브 /health 엔드포인트를 호출하고 프로브가
-#                         ok가 아니면 파이프라인 실패 처리.
-#   3. e2e              — 배포된 API 대상으로 전체 E2E 테스트 스위트 실행.
-#   4. deploy-ts-client — @devcomfort/ollama-models를 npm에 출시.
-#   5. deploy-py-client — ollama-models를 PyPI에 출시(OIDC).
+#   1. deploy-staging    — Cloudflare Workers 스테이징 환경에 배포.
+#   2. verify-staging    — 스테이징 대상 헬스 체크 + 스모크 테스트.
+#   3. deploy-production — 스테이징 통과 시 프로덕션으로 승격.
+#   4. e2e               — 프로덕션 대상 전체 E2E 스위트 실행.
+#   5. deploy-ts-client  — @devcomfort/ollama-models를 npm에 출시.
+#   6. deploy-py-client  — ollama-models를 PyPI에 출시(OIDC).
 
 name: Deploy
 
@@ -50,114 +48,131 @@ on:
 
 env:
   API_URL: https://ollama-models-api.devcomfort.workers.dev
+  STAGING_URL: https://ollama-models-api-staging.devcomfort.workers.dev
 
 jobs:
-  # ─── 1. Deploy API ──────────────────────────────────────────────────────────
-  deploy-api:
-    name: Deploy API to Cloudflare Workers
+  # ─── 1. Deploy to staging ──────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy API to staging
     runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Deploy to staging
+        run: pnpm --filter ollama-models-api run deploy:staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: Notify staging deploy failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          chmod +x scripts/notify.sh
+          ./scripts/notify.sh slack critical "Staging deploy failed" "Job: ${{ github.job }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+  # ─── 2. Verify staging ────────────────────────────────────────────────────
+  verify-staging:
+    name: Verify staging health
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+
+    steps:
+      - name: Wait for propagation
+        run: sleep 15
+      - name: Check /health endpoint
+        run: |
+          echo "Checking $STAGING_URL/health ..."
+          HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "$STAGING_URL/health")
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/health.json
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Health check returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          OK=$(jq -r '.ok' /tmp/health.json)
+          if [ "$OK" != "true" ]; then
+            echo "❌ Health check body reports ok=false"
+            exit 1
+          fi
+          echo "✅ API is healthy"
+      - name: Smoke test /search endpoint
+        run: |
+          echo "Checking $STAGING_URL/search?q=qwen3&page=1 ..."
+          HTTP_CODE=$(curl -s -o /tmp/search.json -w "%{http_code}" "$STAGING_URL/search?q=qwen3&page=1")
+          echo "HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Search endpoint returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          echo "✅ Search endpoint is responding"
+      - name: Smoke test /model endpoint
+        run: |
+          echo "Checking $STAGING_URL/model?name=library/qwen3 ..."
+          HTTP_CODE=$(curl -s -o /tmp/model.json -w "%{http_code}" "$STAGING_URL/model?name=library/qwen3")
+          echo "HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Model endpoint returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          echo "✅ Model endpoint is responding"
+      - name: Notify verification failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          chmod +x scripts/notify.sh
+          ./scripts/notify.sh slack critical "Staging verification failed" "Job: ${{ github.job }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  # ─── 3. Deploy to production ───────────────────────────────────────────────
+  deploy-production:
+    name: Deploy API to production
+    runs-on: ubuntu-latest
+    needs: verify-staging
     environment: production
     permissions:
       contents: read
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: pnpm
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Deploy to Cloudflare Workers
+      - name: Deploy to production
         run: pnpm --filter ollama-models-api run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
-      - name: Notify deploy failure
+      - name: Notify production deploy failure
         if: failure()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           chmod +x scripts/notify.sh
-          ./scripts/notify.sh slack critical "Deploy failed: API" "Job: ${{ github.job }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-  # ─── 2. Health check against deployed API ───────────────────────────────────
-  health-check:
-    name: Verify deployed API health
-    runs-on: ubuntu-latest
-    needs: deploy-api
-
-    steps:
-      - name: Wait for propagation
-        run: sleep 15
-
-      - name: Check /health endpoint
-        run: |
-          echo "Checking $API_URL/health ..."
-          HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" "$API_URL/health")
-          echo "HTTP $HTTP_CODE"
-          cat /tmp/health.json
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Health check returned HTTP $HTTP_CODE"
-            exit 1
-          fi
-
-          OK=$(jq -r '.ok' /tmp/health.json)
-          if [ "$OK" != "true" ]; then
-            echo "❌ Health check body reports ok=false"
-            exit 1
-          fi
-
-          echo "✅ API is healthy"
-
-      - name: Smoke test /search endpoint
-        run: |
-          echo "Checking $API_URL/search?q=qwen3&page=1 ..."
-          HTTP_CODE=$(curl -s -o /tmp/search.json -w "%{http_code}" "$API_URL/search?q=qwen3&page=1")
-          echo "HTTP $HTTP_CODE"
-          cat /tmp/search.json
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Search endpoint returned HTTP $HTTP_CODE"
-            exit 1
-          fi
-
-          echo "✅ Search endpoint is responding"
-
-      - name: Smoke test /model endpoint
-        run: |
-          echo "Checking $API_URL/model?name=library/qwen3 ..."
-          HTTP_CODE=$(curl -s -o /tmp/model.json -w "%{http_code}" "$API_URL/model?name=library/qwen3")
-          echo "HTTP $HTTP_CODE"
-          cat /tmp/model.json
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Model endpoint returned HTTP $HTTP_CODE"
-            exit 1
-          fi
-
-          echo "✅ Model endpoint is responding"
-
-  # ─── 3. E2E test suite against deployed API ─────────────────────────────────
+          ./scripts/notify.sh slack critical "Production deploy failed" "Job: ${{ github.job }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+  # ─── 4. E2E test suite against production ──────────────────────────────────
   e2e:
     name: E2E test suite
     runs-on: ubuntu-latest
-    needs: health-check
+    needs: deploy-production
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Run E2E tests
         run: |
           chmod +x scripts/e2e.sh
           ./scripts/e2e.sh "$API_URL"
-
       - name: Notify E2E failure
         if: failure()
         env:
