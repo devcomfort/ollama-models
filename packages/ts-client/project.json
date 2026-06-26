@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "name": "ts-client",
+  "sourceRoot": "packages/ts-client/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "command": "pnpm exec tsdown",
+      "options": { "cwd": "{projectRoot}" },
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "test": {
+      "command": "pnpm exec vitest run",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": true
+    },
+    "type-check": {
+      "command": "pnpm exec tsc --noEmit",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": true
+    },
+    "dev": {
+      "command": "pnpm exec tsdown --watch",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": false
+    }
+  },
+  "tags": ["scope:client", "type:lib"]
+}

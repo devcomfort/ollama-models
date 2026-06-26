@@ -1,3 +1,5 @@
+# Nx
+.nx/cache
 # Wrangler local dev secrets (never commit)
 .dev.vars
 

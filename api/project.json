@@ -1,0 +1,45 @@
+{
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "name": "api",
+  "sourceRoot": "api/src",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "command": "wrangler dev",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": false
+    },
+    "deploy": {
+      "command": "wrangler deploy",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": false
+    },
+    "deploy:staging": {
+      "command": "wrangler deploy --env staging",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": false
+    },
+    "build": {
+      "command": "wrangler deploy --dry-run --outdir=dist",
+      "options": { "cwd": "{projectRoot}" },
+      "dependsOn": [],
+      "cache": true
+    },
+    "test": {
+      "command": "pnpm exec vitest run",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": true
+    },
+    "type-check": {
+      "command": "pnpm exec tsc --noEmit",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": true
+    },
+    "gen-openapi": {
+      "command": "pnpm exec tsx scripts/gen-openapi.ts",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": true
+    }
+  },
+  "tags": ["scope:api", "type:app"]
+}

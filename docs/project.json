@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "name": "docs",
+  "sourceRoot": "docs/src",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "command": "pnpm exec astro dev",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": false
+    },
+    "build": {
+      "command": "pnpm exec astro build",
+      "options": { "cwd": "{projectRoot}" },
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "preview": {
+      "command": "pnpm exec astro preview",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": false
+    }
+  },
+  "tags": ["scope:docs", "type:app"]
+}

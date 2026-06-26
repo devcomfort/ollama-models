@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "name": "py-client",
+  "sourceRoot": "packages/py-client/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "command": "rye run python -m build",
+      "options": { "cwd": "{projectRoot}" },
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    },
+    "test": {
+      "command": "rye run pytest tests/unit/",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": true
+    },
+    "test:integration": {
+      "command": "rye run pytest tests/",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": true
+    }
+  },
+  "tags": ["scope:client", "type:lib"]
+}

@@ -3,22 +3,25 @@
     "private": true,
     "version": "0.0.0",
     "scripts": {
-        "dev": "pnpm --filter ollama-models-api dev",
-        "deploy": "pnpm --filter ollama-models-api deploy",
-        "build": "pnpm --filter @devcomfort/ollama-models build",
-        "gen-openapi": "pnpm --filter ollama-models-api gen-openapi",
-        "type-check": "pnpm -r type-check",
-        "test": "pnpm -r run test && pnpm test:py && pnpm test:lint-readme",
-        "test:api": "pnpm --filter ollama-models-api test",
-        "test:ts": "pnpm --filter @devcomfort/ollama-models test",
+        "dev": "nx dev api",
+        "deploy": "nx deploy api",
+        "build": "nx run-many -t build",
+        "gen-openapi": "nx run api:gen-openapi",
+        "type-check": "nx run-many -t type-check",
+        "test": "nx run-many -t test && pnpm test:lint-readme",
+        "test:api": "nx test api",
+        "test:ts": "nx test ts-client",
         "test:py": "cd packages/py-client && SKIP_INTEGRATION=1 rye run pytest",
         "test:lint-readme": "! grep -rE 'default_model_id|model_list|ModelWeight' README.md packages/*/README.md && echo 'All README schema names are current.'",
         "py:sync": "cd packages/py-client && rye sync",
-        "py:build": "cd packages/py-client && rye run python -m build",
+        "py:build": "nx run py-client:build",
         "py:publish": "cd packages/py-client && rye run twine upload dist/*",
-        "ts:publish": "pnpm --filter @devcomfort/ollama-models publish --access public",
-        "build:docs": "pnpm --filter docs build",
-        "docs:dev": "pnpm --filter docs dev"
+        "ts:publish": "cd packages/ts-client && pnpm publish --access public",
+        "build:docs": "nx build docs",
+        "docs:dev": "nx dev docs",
+        "affected:test": "nx affected -t test",
+        "affected:build": "nx affected -t build",
+        "graph": "nx graph"
     },
     "pnpm": {
         "onlyBuiltDependencies": [
@@ -29,6 +32,7 @@
     },
     "packageManager": "pnpm@10.22.0+sha512.bf049efe995b28f527fd2b41ae0474ce29186f7edcb3bf545087bd61fbbebb2bf75362d1307fda09c2d288e1e499787ac12d4fcb617a974718a6051f2eee741c",
     "devDependencies": {
+        "nx": "^23.0.1",
         "tsx": "^4.21.0"
     }
 }
