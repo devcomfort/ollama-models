@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: Cache strategy, error handling, alert system, and the three-layer testing design.
+description: Cache strategy, error handling, observability, and the three-layer testing design.
 ---
 
 ## Cache Strategy
@@ -18,23 +18,14 @@ Cache invalidation is purely time-based — no manual invalidation mechanism exi
 ## Error Handling Flow
 
 1. **Scraper layer** — `scrapeSearchPage()` and `scrapeModelPage()` throw `Error` on HTTP failures or CSS selector mismatches.
-2. **Assertion layer** — `assert()` from `es-toolkit/util` validates post-parse results (e.g., selector returned 0 elements).
-3. **Route handler layer** — `try/catch` wraps each handler. Scraper errors map to structured `ErrorResponse` with appropriate HTTP status codes.
-4. **Alert layer** — On scraper failure, `AlertService` fires webhook notifications via `Promise.allSettled`. Alert failures are silently swallowed.
+2. **Route handler layer** — `try/catch` wraps each handler. Scraper errors map to structured `ErrorResponse` with appropriate HTTP status codes.
+3. **Observability** — Scraper failures are logged as structured JSON via `console.error()` and surfaced in Cloudflare Workers Logs.
 
 See [API Endpoints](/api-reference/#error-codes) for the full error code reference.
 
-## Alert System
+## Observability
 
-`AlertService` dispatches alerts to all configured channels in parallel via `Promise.allSettled`:
-
-- **SlackChannel** — Slack webhook with mrkdwn formatting.
-- **DiscordChannel** — Discord embed with severity-colored banners.
-- **EmailChannel** — Generic email webhook.
-
-Webhook URLs are stored as Cloudflare Workers secrets (set via `wrangler secret put`), not in `wrangler.toml`.
-
-Alert delivery is fire-and-forget — failures never interfere with the request lifecycle.
+Scraper failures are logged as structured JSON with severity, request context, and error details. Logs are surfaced via Cloudflare Workers Logs (dashboard → Workers & Pages → Logs) — no webhook secrets or external integrations required.
 
 ## Three-Layer Testing Strategy
 

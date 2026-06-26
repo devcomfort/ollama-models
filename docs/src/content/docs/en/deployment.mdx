@@ -21,11 +21,7 @@ The Worker configuration lives in `api/wrangler.toml`:
 name = "ollama-models-api"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
-
-account_id = "your-account-id"
-
-[triggers]
-crons = ["0 * * * *"]
+# account_id is provided via CLOUDFLARE_API_TOKEN or --account-id flag at deploy time.
 
 [vars]
 OLLAMA_BASE = "https://ollama.com"
@@ -42,19 +38,9 @@ pnpm deploy
 
 This runs `wrangler deploy` from the `api/` directory. Wrangler transpiles TypeScript at deploy time — no separate build step is needed.
 
-## Secrets
+## Observability
 
-### Cloudflare Workers (runtime alerts)
-
-The Worker sends alerts when scrapers fail. Each channel has its own secret:
-
-```bash
-wrangler secret put SLACK_WEBHOOK_URL --config api/wrangler.toml
-wrangler secret put DISCORD_WEBHOOK_URL --config api/wrangler.toml
-wrangler secret put EMAIL_WEBHOOK_URL --config api/wrangler.toml
-```
-
-Secrets are encrypted and never appear in `wrangler.toml` or version control.
+Scraper failures are logged as structured JSON via `console.error()` and surfaced in Cloudflare Workers Logs. No webhook secrets or external integrations are needed at the runtime level.
 
 ### GitHub Actions (CI/CD notifications)
 
@@ -74,7 +60,7 @@ gh secret set SLACK_WEBHOOK_URL --body "https://hooks.slack.com/services/T.../B.
 
 ## Notifications
 
-The project uses `scripts/notify.sh` as a unified alerting facade — the same script runs in both Cloudflare Workers (via `AlertService`) and GitHub Actions workflows.
+CI/CD notifications are handled by `scripts/notify.sh` in GitHub Actions workflows (not in the Worker runtime).
 
 ### Slack format
 
@@ -102,20 +88,7 @@ Messages use [Block Kit](https://api.slack.com/reference/block-kit/blocks) with:
 | `OLLAMA_USER_AGENT` | User-Agent header for upstream requests | `wrangler.toml` `[vars]` |
 | `OLLAMA_ACCEPT` | Accept header for upstream requests | `wrangler.toml` `[vars]` |
 | `OLLAMA_ACCEPT_LANGUAGE` | Accept-Language header for upstream requests | `wrangler.toml` `[vars]` |
-| `SLACK_WEBHOOK_URL` | Slack webhook for alerts | Wrangler secret + GitHub secret |
-| `DISCORD_WEBHOOK_URL` | Discord webhook for alerts | Wrangler secret |
-| `EMAIL_WEBHOOK_URL` | Email webhook for alerts | Wrangler secret |
 
-## Cron Triggers
-
-The Worker runs a scheduled health check every hour:
-
-```toml
-[triggers]
-crons = ["0 * * * *"]
-```
-
-On each cron tick, `runHealthCheck()` probes both scrapers. If any probe fails, an alert is sent via the configured webhook channels.
 
 ## CI/CD
 
@@ -140,7 +113,7 @@ On each cron tick, `runHealthCheck()` probes both scrapers. If any probe fails, 
 - deploy-py-client → Handled by publish-pypi.yml on py-v* tag
 ```
 
-All failures are reported via [Slack notifications](#notifications). Documentation-only commits skip deployment.
+CI failures are reported via [Slack notifications](#notifications). Documentation-only commits skip deployment.
 
 ### Local Development
 

@@ -21,11 +21,7 @@ Worker 설정은 `api/wrangler.toml`에 있습니다:
 name = "ollama-models-api"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
-
-account_id = "your-account-id"
-
-[triggers]
-crons = ["0 * * * *"]
+# account_id는 배포 시 CLOUDFLARE_API_TOKEN 또는 --account-id 플래그로 제공됩니다.
 
 [vars]
 OLLAMA_BASE = "https://ollama.com"
@@ -42,19 +38,9 @@ pnpm deploy
 
 `api/` 디렉토리에서 `wrangler deploy`를 실행합니다. Wrangler는 배포 시 TypeScript를 트랜스파일하므로 별도의 빌드 단계가 필요하지 않습니다.
 
-## 시크릿
+## 관측성
 
-### Cloudflare Workers (런타임 알림)
-
-Worker는 스크래퍼 실패 시 알림을 전송합니다. 채널별로 별도 시크릿을 사용합니다:
-
-```bash
-wrangler secret put SLACK_WEBHOOK_URL --config api/wrangler.toml
-wrangler secret put DISCORD_WEBHOOK_URL --config api/wrangler.toml
-wrangler secret put EMAIL_WEBHOOK_URL --config api/wrangler.toml
-```
-
-시크릿은 암호화되며 `wrangler.toml`이나 버전 관리에 나타나지 않습니다.
+스크래퍼 실패는 `console.error()`를 통해 구조화된 JSON으로 로깅되며 Cloudflare Workers Logs에서 확인할 수 있습니다. 런타임 수준에서 웹훅 시크릿이나 외부 통합이 필요 없습니다.
 
 ### GitHub Actions (CI/CD 알림)
 
@@ -74,7 +60,7 @@ gh secret set SLACK_WEBHOOK_URL --body "https://hooks.slack.com/services/T.../B.
 
 ## 알림
 
-프로젝트는 `scripts/notify.sh`를 통합 알림 파사드로 사용합니다 — Cloudflare Workers(`AlertService`)와 GitHub Actions 워크플로우에서 동일한 스크립트를 호출합니다.
+CI/CD 알림은 GitHub Actions 워크플로우의 `scripts/notify.sh`로 처리됩니다 (Worker 런타임이 아님).
 
 ### Slack 형식
 
@@ -102,20 +88,7 @@ gh secret set SLACK_WEBHOOK_URL --body "https://hooks.slack.com/services/T.../B.
 | `OLLAMA_USER_AGENT` | 업스트림 요청용 User-Agent 헤더 | `wrangler.toml` `[vars]` |
 | `OLLAMA_ACCEPT` | 업스트림 요청용 Accept 헤더 | `wrangler.toml` `[vars]` |
 | `OLLAMA_ACCEPT_LANGUAGE` | 업스트림 요청용 Accept-Language 헤더 | `wrangler.toml` `[vars]` |
-| `SLACK_WEBHOOK_URL` | 알림용 Slack 웹훅 | Wrangler 시크릿 + GitHub 시크릿 |
-| `DISCORD_WEBHOOK_URL` | 알림용 Discord 웹훅 | Wrangler 시크릿 |
-| `EMAIL_WEBHOOK_URL` | 알림용 이메일 웹훅 | Wrangler 시크릿 |
 
-## Cron 트리거
-
-Worker는 매시간 예약된 헬스 체크를 실행합니다:
-
-```toml
-[triggers]
-crons = ["0 * * * *"]
-```
-
-각 cron 틱마다 `runHealthCheck()`가 두 스크래퍼를 프로브합니다. 프로브가 실패하면 설정된 웹훅 채널로 알림이 전송됩니다.
 
 ## CI/CD
 
@@ -140,7 +113,7 @@ crons = ["0 * * * *"]
 - deploy-py-client  → publish-pypi.yml이 py-v* 태그에서 처리
 ```
 
-모든 실패는 [Slack 알림](#알림)으로 전달됩니다. 문서 전용 커밋은 배포를 건너뜁니다.
+CI 실패는 [Slack 알림](#알림)으로 전달됩니다. 문서 전용 커밋은 배포를 건너뜁니다.
 
 ### 로컬 개발
 
