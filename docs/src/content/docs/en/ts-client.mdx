@@ -1,18 +1,18 @@
 ---
 title: "TypeScript Client"
-description: "Installation, usage, and type reference for @devcomfort/ollama-models."
+description: "Installation, usage, and type reference for ollama-models."
 ---
 
-The `@devcomfort/ollama-models` package provides a typed, promise-based HTTP client for the ollama-models Workers API.
+The `ollama-models` package provides a typed, promise-based HTTP client for the ollama-models Workers API.
 
 ## Installation
 
 ```bash
-npm install @devcomfort/ollama-models
+npm install ollama-models
 # or
-pnpm add @devcomfort/ollama-models
+pnpm add ollama-models
 # or
-yarn add @devcomfort/ollama-models
+yarn add ollama-models
 ```
 
 ## Usage
@@ -20,7 +20,7 @@ yarn add @devcomfort/ollama-models
 ### Basic Setup
 
 ```typescript
-import { OllamaModelsClient } from '@devcomfort/ollama-models';
+import { OllamaModelsClient } from 'ollama-models';
 
 // Uses the official hosted API by default
 const client = new OllamaModelsClient();

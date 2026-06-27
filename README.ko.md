@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@devcomfort/ollama-models"><img src="https://img.shields.io/npm/v/@devcomfort/ollama-models?color=cb3837&label=npm" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/ollama-models"><img src="https://img.shields.io/npm/v/ollama-models?color=cb3837&label=npm" alt="npm"></a>
   <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/v/ollama-models?color=3775A9&label=pypi" alt="PyPI"></a>
   <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/pyversions/ollama-models" alt="Python"></a>
   <br>
@@ -41,11 +41,11 @@
 ### TypeScript / JavaScript
 
 ```bash
-npm install @devcomfort/ollama-models
+npm install ollama-models
 ```
 
 ```typescript
-import { OllamaModelsClient } from '@devcomfort/ollama-models';
+import { OllamaModelsClient } from 'ollama-models';
 
 const client = new OllamaModelsClient();
 
@@ -189,7 +189,7 @@ api/                  Cloudflare Workers API (Hono + Zod OpenAPI)
   src/health/         헬스 체크 로직
   src/lib/            캐시, fetchWithRetry 유틸리티
 packages/
-  ts-client/          TypeScript 클라이언트 (@devcomfort/ollama-models)
+  ts-client/          TypeScript 클라이언트 (ollama-models)
   py-client/          Python 클라이언트 (ollama-models)
 workers/
   alerts/             Tail Worker: 런타임 에러 → 이메일 알림

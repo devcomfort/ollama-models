@@ -7,7 +7,7 @@ Instructions for AI agents working on the ollama-models project.
 `ollama-models` is a Cloudflare Workers API + TypeScript + Python client monorepo that scrapes `ollama.com` to provide model search and tag listing as a JSON HTTP API.
 
 - **API**: Cloudflare Workers + Hono (`api/`)
-- **TS Client**: `@devcomfort/ollama-models` (`packages/ts-client/`)
+- **TS Client**: `ollama-models` (`packages/ts-client/`)
 - **Python Client**: `ollama-models` (`packages/py-client/`)
 - **Base URL**: `https://ollama.devcomfort.me/api`
 
@@ -124,7 +124,7 @@ api/
     gen-openapi.ts        # OpenAPI spec generator
   wrangler.toml           # Worker config + [vars]
 packages/
-  ts-client/            # NPM: @devcomfort/ollama-models
+  ts-client/            # NPM: ollama-models
   py-client/            # PyPI: ollama-models
 workers/
   alerts/               # Tail Worker: real-time error → email alerts

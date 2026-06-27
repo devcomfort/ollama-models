@@ -1,18 +1,18 @@
 ---
 title: "TypeScript 클라이언트"
-description: "@devcomfort/ollama-models의 설치, 사용법, 타입 레퍼런스."
+description: "ollama-models의 설치, 사용법, 타입 레퍼런스."
 ---
 
-`@devcomfort/ollama-models` 패키지는 ollama-models Workers API를 위한 타입 기반의 Promise HTTP 클라이언트를 제공합니다.
+`ollama-models` 패키지는 ollama-models Workers API를 위한 타입 기반의 Promise HTTP 클라이언트를 제공합니다.
 
 ## 설치
 
 ```bash
-npm install @devcomfort/ollama-models
+npm install ollama-models
 # 또는
-pnpm add @devcomfort/ollama-models
+pnpm add ollama-models
 # 또는
-yarn add @devcomfort/ollama-models
+yarn add ollama-models
 ```
 
 ## 사용법
@@ -20,7 +20,7 @@ yarn add @devcomfort/ollama-models
 ### 기본 설정
 
 ```typescript
-import { OllamaModelsClient } from '@devcomfort/ollama-models';
+import { OllamaModelsClient } from 'ollama-models';
 
 // 기본적으로 공식 호스팅 API를 사용
 const client = new OllamaModelsClient();

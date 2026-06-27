@@ -27,11 +27,11 @@ curl "https://ollama.devcomfort.me/api/health"
 ### TypeScript 클라이언트
 
 ```bash
-npm install @devcomfort/ollama-models
+npm install ollama-models
 ```
 
 ```typescript
-import { OllamaModelsClient } from '@devcomfort/ollama-models';
+import { OllamaModelsClient } from 'ollama-models';
 
 const client = new OllamaModelsClient();
 const result = await client.search('qwen3', 1);
@@ -59,7 +59,7 @@ api/                      # Cloudflare Workers REST API (Hono)
   src/model/              # 모델 스크래퍼
   src/lib/                # Cache, fetchWithRetry 유틸리티
 packages/
-  ts-client/              # @devcomfort/ollama-models (NPM)
+  ts-client/              # ollama-models (NPM)
   py-client/              # ollama-models (PyPI)
 docs/                     # Astro Starlight 문서 사이트
 scripts/                  # CI/CD: smoke-ts-client.sh, e2e.sh

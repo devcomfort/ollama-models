@@ -1,4 +1,4 @@
-# @devcomfort/ollama-models
+# ollama-models
 
 [Ollama](https://ollama.com) 레지스트리에서 모델을 검색하고 나열하는 TypeScript/JavaScript 클라이언트.
 
@@ -7,15 +7,15 @@ English | **한국어**
 ## 설치
 
 ```bash
-npm install @devcomfort/ollama-models
+npm install ollama-models
 # 또는
-pnpm add @devcomfort/ollama-models
+pnpm add ollama-models
 ```
 
 ## 사용법
 
 ```typescript
-import { OllamaModelsClient } from '@devcomfort/ollama-models';
+import { OllamaModelsClient } from 'ollama-models';
 
 // 기본 URL 불필요 — 공식 호스팅 인스턴스 사용
 const client = new OllamaModelsClient();

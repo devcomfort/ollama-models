@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@devcomfort/ollama-models"><img src="https://img.shields.io/npm/v/@devcomfort/ollama-models?color=cb3837&label=npm" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/ollama-models"><img src="https://img.shields.io/npm/v/ollama-models?color=cb3837&label=npm" alt="npm"></a>
   <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/v/ollama-models?color=3775A9&label=pypi" alt="PyPI"></a>
   <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/pyversions/ollama-models" alt="Python"></a>
   <br>
@@ -41,11 +41,11 @@
 ### TypeScript / JavaScript
 
 ```bash
-npm install @devcomfort/ollama-models
+npm install ollama-models
 ```
 
 ```typescript
-import { OllamaModelsClient } from '@devcomfort/ollama-models';
+import { OllamaModelsClient } from 'ollama-models';
 
 const client = new OllamaModelsClient();
 
@@ -189,7 +189,7 @@ api/                  Cloudflare Workers API (Hono + Zod OpenAPI)
   src/health/         Health check logic
   src/lib/            Cache, fetchWithRetry utilities
 packages/
-  ts-client/          TypeScript client (@devcomfort/ollama-models)
+  ts-client/          TypeScript client (ollama-models)
   py-client/          Python client (ollama-models)
 workers/
   alerts/             Tail Worker: runtime error → email alerts

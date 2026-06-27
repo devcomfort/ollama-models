@@ -1,5 +1,5 @@
 {
-    "name": "@devcomfort/ollama-models",
+    "name": "ollama-models",
     "version": "0.2.0",
     "description": "TypeScript/JavaScript client for searching and listing Ollama model weights",
     "keywords": [
