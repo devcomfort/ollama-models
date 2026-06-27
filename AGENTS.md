@@ -9,7 +9,7 @@ Instructions for AI agents working on the ollama-models project.
 - **API**: Cloudflare Workers + Hono (`api/`)
 - **TS Client**: `@devcomfort/ollama-models` (`packages/ts-client/`)
 - **Python Client**: `ollama-models` (`packages/py-client/`)
-- **Base URL**: `https://ollama-models-api.devcomfort.workers.dev`
+- **Base URL**: `https://ollama.devcomfort.me/api`
 
 ## Tech Stack
 

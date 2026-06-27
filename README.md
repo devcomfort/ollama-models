@@ -18,7 +18,7 @@ Search and list [Ollama](https://ollama.com) model weights programmatically. Oll
 | Service | URL |
 |---------|-----|
 | 📖 Documentation | [ollama.devcomfort.me](https://ollama.devcomfort.me) |
-| 🔌 API | [ollama-models-api.devcomfort.workers.dev](https://ollama-models-api.devcomfort.workers.dev) |
+| 🔌 API | [ollama-models-api.devcomfort.workers.dev](https://ollama.devcomfort.me/api) |
 
 ---
 
@@ -112,7 +112,7 @@ asyncio.run(main())
 
 ### REST API
 
-**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+**Base URL:** `https://ollama.devcomfort.me/api`
 
 | Endpoint | Parameters | Description |
 |---|---|---|
@@ -122,10 +122,10 @@ asyncio.run(main())
 
 ```bash
 # Search for "qwen"
-curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen"
+curl "https://ollama.devcomfort.me/api/search?q=qwen"
 
 # Get all tags for qwen3
-curl "https://ollama-models-api.devcomfort.workers.dev/model?name=qwen3"
+curl "https://ollama.devcomfort.me/api/model?name=qwen3"
 ```
 
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-Interactive-85EA2D?logo=openapiinitiative)](https://redocly.github.io/redoc/?url=https%3A%2F%2Follama-models-api.devcomfort.workers.dev%2Fopenapi.json)

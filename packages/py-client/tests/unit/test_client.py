@@ -43,7 +43,7 @@ MOCK_HEALTH = {
 
 def test_default_base_url_is_official_instance():
     """Verifies DEFAULT_BASE_URL points to the official production Workers endpoint."""
-    assert DEFAULT_BASE_URL == "https://ollama-models-api.devcomfort.workers.dev"
+    assert DEFAULT_BASE_URL == "https://ollama.devcomfort.me/api"
 
 
 def test_client_uses_default_base_url(httpx_mock: HTTPXMock):

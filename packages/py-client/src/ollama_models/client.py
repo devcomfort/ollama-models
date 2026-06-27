@@ -14,7 +14,7 @@ from .types import (
     HealthStatus,
 )
 
-DEFAULT_BASE_URL = "https://ollama-models-api.devcomfort.workers.dev"
+DEFAULT_BASE_URL = "https://ollama.devcomfort.me/api"
 
 
 class OllamaModelsClient:

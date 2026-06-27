@@ -13,16 +13,16 @@ Ollama does not expose a public API for registry search. This project scrapes SS
 
 ```bash
 # Search for models
-curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen3&page=1"
+curl "https://ollama.devcomfort.me/api/search?q=qwen3&page=1"
 
 # Get all tags for a model
-curl "https://ollama-models-api.devcomfort.workers.dev/model?name=library/qwen3"
+curl "https://ollama.devcomfort.me/api/model?name=library/qwen3"
 
 # Health check
-curl "https://ollama-models-api.devcomfort.workers.dev/health"
+curl "https://ollama.devcomfort.me/api/health"
 ```
 
-**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+**Base URL:** `https://ollama.devcomfort.me/api`
 
 ### TypeScript Client
 

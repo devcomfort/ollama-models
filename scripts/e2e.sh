@@ -2,11 +2,11 @@
 # E2E test suite against the deployed ollama-models API.
 #
 # usage: ./scripts/e2e.sh [BASE_URL]
-#   BASE_URL defaults to https://ollama-models-api.devcomfort.workers.dev
+#   BASE_URL defaults to https://ollama.devcomfort.me/api
 
 set -euo pipefail
 
-BASE_URL="${1:-https://ollama-models-api.devcomfort.workers.dev}"
+BASE_URL="${1:-https://ollama.devcomfort.me/api}"
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 

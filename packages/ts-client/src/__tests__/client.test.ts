@@ -39,7 +39,7 @@ const MOCK_MODEL: unknown = {
 // === DEFAULT_BASE_URL ===
 describe('DEFAULT_BASE_URL', () => {
   it('points to the official hosted instance', () => {
-    expect(DEFAULT_BASE_URL).toBe('https://ollama-models-api.devcomfort.workers.dev');
+    expect(DEFAULT_BASE_URL).toBe('https://ollama.devcomfort.me/api');
   });
 });
 

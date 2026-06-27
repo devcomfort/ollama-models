@@ -6,7 +6,7 @@ import { assertModelTags, assertSearchResult, assertHealthStatus } from './schem
  *
  * Pass a different URL to {@link OllamaModelsClient} when self-hosting.
  */
-export const DEFAULT_BASE_URL = 'https://ollama-models-api.devcomfort.workers.dev';
+export const DEFAULT_BASE_URL = 'https://ollama.devcomfort.me/api';
 
 /**
  * HTTP client for the ollama-models Workers API.

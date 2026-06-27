@@ -3,7 +3,7 @@ title: API 엔드포인트
 description: GET /search, GET /model, GET /health 엔드포인트의 완전한 레퍼런스.
 ---
 
-**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+**Base URL:** `https://ollama.devcomfort.me/api`
 
 모든 엔드포인트는 `application/json`을 반환합니다.
 
@@ -23,7 +23,7 @@ Ollama 검색 결과에서 발견된 모델 페이지를 반환합니다.
 ### 요청 예시
 
 ```bash
-curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen3&page=1"
+curl "https://ollama.devcomfort.me/api/search?q=qwen3&page=1"
 ```
 
 ### 응답 스키마
@@ -69,7 +69,7 @@ curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen3&page=1"
 ### 요청 예시
 
 ```bash
-curl "https://ollama-models-api.devcomfort.workers.dev/model?name=library/qwen3"
+curl "https://ollama.devcomfort.me/api/model?name=library/qwen3"
 ```
 
 ### 응답 스키마
@@ -101,7 +101,7 @@ curl "https://ollama-models-api.devcomfort.workers.dev/model?name=library/qwen3"
 ### 요청 예시
 
 ```bash
-curl "https://ollama-models-api.devcomfort.workers.dev/health"
+curl "https://ollama.devcomfort.me/api/health"
 ```
 
 ### 응답 스키마

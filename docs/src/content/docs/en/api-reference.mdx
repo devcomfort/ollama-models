@@ -3,7 +3,7 @@ title: API Endpoints
 description: Complete reference for GET /search, GET /model, and GET /health endpoints.
 ---
 
-**Base URL:** `https://ollama-models-api.devcomfort.workers.dev`
+**Base URL:** `https://ollama.devcomfort.me/api`
 
 All endpoints return `application/json`.
 
@@ -23,7 +23,7 @@ Returns model pages discovered from the Ollama search results.
 ### Example Request
 
 ```bash
-curl "https://ollama-models-api.devcomfort.workers.dev/search?q=qwen3&page=1"
+curl "https://ollama.devcomfort.me/api/search?q=qwen3&page=1"
 ```
 
 ### Response Schema
@@ -69,7 +69,7 @@ Returns all available tags (weights) for a specific model.
 ### Example Request
 
 ```bash
-curl "https://ollama-models-api.devcomfort.workers.dev/model?name=library/qwen3"
+curl "https://ollama.devcomfort.me/api/model?name=library/qwen3"
 ```
 
 ### Response Schema
@@ -101,7 +101,7 @@ Runs live probes against both scrapers (search and model) and returns their stat
 ### Example Request
 
 ```bash
-curl "https://ollama-models-api.devcomfort.workers.dev/health"
+curl "https://ollama.devcomfort.me/api/health"
 ```
 
 ### Response Schema

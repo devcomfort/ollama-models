@@ -37,7 +37,7 @@ model.tags.forEach(t => console.log(t));
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `baseUrl` | `string` | `https://ollama-models-api.devcomfort.workers.dev` | Base URL of the ollama-models Workers API |
+| `baseUrl` | `string` | `https://ollama.devcomfort.me/api` | Base URL of the ollama-models Workers API |
 
 ### `client.search(keyword?, page?): Promise<SearchResult>`
 

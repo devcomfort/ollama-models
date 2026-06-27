@@ -33,7 +33,7 @@ const doc = app.getOpenAPIDocument({
       'Scrapes ollama.com to expose model search and tag listing as a JSON HTTP API. ' +
       'Hosted on Cloudflare Workers.',
   },
-  servers: [{ url: 'https://ollama-models-api.devcomfort.workers.dev' }],
+  servers: [{ url: 'https://ollama.devcomfort.me/api' }],
 });
 
 const outPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'openapi.json');

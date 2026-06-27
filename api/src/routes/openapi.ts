@@ -6,6 +6,6 @@ export const openapiConfig = {
     description: 'JSON HTTP API for searching Ollama models and listing their tags, backed by live scraping of ollama.com.',
   },
   servers: [
-    { url: 'https://ollama-models-api.devcomfort.workers.dev', description: 'Production (Cloudflare Workers)' },
+    { url: 'https://ollama.devcomfort.me/api', description: 'Production (Cloudflare Workers)' },
   ],
 };
