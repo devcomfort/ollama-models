@@ -1,0 +1,4 @@
+name = "ollama-models-alerts"
+main = "index.js"
+compatibility_date = "2024-11-01"
+# account_id is provided via CLOUDFLARE_ACCOUNT_ID env var at deploy time.

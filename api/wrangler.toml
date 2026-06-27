@@ -20,3 +20,6 @@ OLLAMA_BASE = "https://ollama.com"
 OLLAMA_USER_AGENT = "ollama-models-api-staging/0.1 (+https://github.com/devcomfort/ollama-models)"
 OLLAMA_ACCEPT = "text/html,application/xhtml+xml"
 OLLAMA_ACCEPT_LANGUAGE = "en-US,en;q=0.9"
+
+[[tail_consumers]]
+service = "ollama-models-alerts"
