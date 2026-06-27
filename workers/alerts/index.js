@@ -10,22 +10,25 @@
  *
  * Required secrets (set via `wrangler secret put`):
  *   ALERT_WEBHOOK_URL — Slack/Discord/compatible webhook URL
+ *
+ * Optional (Cloudflare Email Service):
+ *   ALERT_EMAIL_TO    — recipient email address
+ *   Requires [[send_email]] binding in wrangler.toml + domain verification
  */
 export default {
   async tail(events, env) {
     const webhookUrl = env.ALERT_WEBHOOK_URL;
-    if (!webhookUrl) return;
 
     for (const event of events) {
-      // Only alert on errors/exceptions, not successful requests
-      if (event.outcome !== 'exception' && event.outcome !== 'error') continue;
+      // Valid outcomes: 'ok' | 'exception' | 'exceededCpu' | 'exceededMemory' | 'unknown' | 'canceled'
+      if (event.outcome === 'ok') continue;
 
       const errorMsg =
         event.exceptions?.[0]?.message ||
         event.logs?.filter((l) => l.level === 'error')?.map((l) => l.message)?.join('\n') ||
         'Unknown error';
 
-      const text = [
+      const lines = [
         `🚨 *Worker Error: ${event.scriptName}*`,
         `*Outcome:* ${event.outcome}`,
         `*URL:* ${event.event?.request?.url || 'N/A'}`,
@@ -34,17 +37,34 @@ export default {
         '```' + errorMsg + '```',
         `*CPU Time:* ${event.cpuTime}ms`,
         `*Wall Time:* ${event.wallTime}ms`,
-      ].join('\n');
+      ];
 
       // Fire-and-forget: never let alert failure affect the Worker
-      try {
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
-        });
-      } catch {
-        // Silently swallow — alert failure must not interfere
+      // Webhook (Slack, Discord, etc.)
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: lines.join('\n') }),
+          });
+        } catch {
+          // Silently swallow
+        }
+      }
+
+      // Email (Cloudflare Email Service — requires [[send_email]] binding)
+      if (env.ALERT_EMAIL_TO && env.EMAIL) {
+        try {
+          await env.EMAIL.send({
+            to: env.ALERT_EMAIL_TO,
+            from: `alerts@${new URL(event.event?.request?.url || 'https://example.com').hostname}`,
+            subject: `[${event.outcome}] ollama-models error`,
+            text: lines.join('\n').replace(/\*|```/g, ''),
+          });
+        } catch {
+          // Silently swallow
+        }
       }
     }
   },

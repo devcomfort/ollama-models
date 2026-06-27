@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/nx/schemas/project-schema.json",
+  "name": "alerts-worker",
+  "sourceRoot": "workers/alerts",
+  "projectType": "application",
+  "targets": {
+    "deploy": {
+      "command": "npx wrangler deploy",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": false
+    },
+    "dev": {
+      "command": "npx wrangler dev",
+      "options": { "cwd": "{projectRoot}" },
+      "cache": false
+    }
+  },
+  "tags": ["scope:infra", "type:app"]
+}
