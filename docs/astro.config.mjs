@@ -17,6 +17,7 @@ export default defineConfig({
           translations: { ko: '시작하기' },
           items: [
             { label: 'Introduction', translations: { ko: '소개' }, link: '/' },
+            { label: 'Try Now', translations: { ko: '체험하기' }, link: '/try/' },
           ],
         },
         {

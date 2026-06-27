@@ -1,0 +1,106 @@
+---
+const API_BASE = 'https://ollama-models-api.devcomfort.workers.dev';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Try Now — ollama-models</title>
+    <style>
+      :root {
+        --bg: #0d1117; --fg: #e6edf3; --card: #161b22;
+        --border: #30363d; --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; max-width: 64rem; margin: 0 auto; }
+      h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+      p.sub { color: #8b949e; margin-bottom: 2rem; }
+      section { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+      h2 { font-size: 1.25rem; margin-bottom: 1rem; }
+      form { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+      input[type="text"] { flex: 1; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--bg); color: var(--fg); font-size: 0.9rem; }
+      input::placeholder { color: #484f58; }
+      button { padding: 0.6rem 1.25rem; background: var(--accent); color: #fff; border: none; border-radius: 0.375rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+      button:hover { opacity: 0.9; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .status { font-size: 0.8rem; margin-bottom: 0.5rem; min-height: 1.2rem; }
+      .status.ok { color: var(--green); }
+      .status.err { color: var(--red); }
+      .status.loading { color: #8b949e; }
+      pre { background: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; padding: 1rem; overflow: auto; max-height: 20rem; font-size: 0.8rem; display: none; }
+      pre.visible { display: block; }
+      a.back { color: var(--accent); text-decoration: none; font-size: 0.875rem; }
+      a.back:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <a class="back" href="/en/">← Back to docs</a>
+    <h1>Try ollama-models API</h1>
+    <p class="sub">Search and explore Ollama models interactively.</p>
+
+    <section>
+      <h2>🔍 Search Models</h2>
+      <form id="search-form">
+        <input type="text" id="search-q" placeholder="e.g. qwen3, llama, code" />
+        <button type="submit">Search</button>
+      </form>
+      <div class="status" id="search-status"></div>
+      <pre id="search-result"><code></code></pre>
+    </section>
+
+    <section>
+      <h2>📦 Get Model Tags</h2>
+      <form id="model-form">
+        <input type="text" id="model-name" placeholder="e.g. library/qwen3" />
+        <button type="submit">Get Tags</button>
+      </form>
+      <div class="status" id="model-status"></div>
+      <pre id="model-result"><code></code></pre>
+    </section>
+
+    <section>
+      <h2>💚 Health Check</h2>
+      <button id="health-btn">Check Health</button>
+      <div class="status" id="health-status"></div>
+      <pre id="health-result"><code></code></pre>
+    </section>
+
+    <script is:inline>
+      const API = 'https://ollama-models-api.devcomfort.workers.dev';
+
+      async function call(path, statusEl, resultEl) {
+        statusEl.className = 'status loading';
+        statusEl.textContent = 'Loading...';
+        resultEl.classList.remove('visible');
+        try {
+          const res = await fetch(API + path);
+          const data = await res.json();
+          statusEl.className = 'status ' + (res.ok ? 'ok' : 'err');
+          statusEl.textContent = res.ok ? 'Success (HTTP ' + res.status + ')' : 'Error (HTTP ' + res.status + ')';
+          resultEl.querySelector('code').textContent = JSON.stringify(data, null, 2);
+          resultEl.classList.add('visible');
+        } catch (e) {
+          statusEl.className = 'status err';
+          statusEl.textContent = 'Network error: ' + e.message;
+        }
+      }
+
+      document.getElementById('search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var q = document.getElementById('search-q').value.trim();
+        if (q) call('/search?q=' + encodeURIComponent(q), document.getElementById('search-status'), document.getElementById('search-result'));
+      });
+
+      document.getElementById('model-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var n = document.getElementById('model-name').value.trim();
+        if (n) call('/model?name=' + encodeURIComponent(n), document.getElementById('model-status'), document.getElementById('model-result'));
+      });
+
+      document.getElementById('health-btn').addEventListener('click', function() {
+        call('/health', document.getElementById('health-status'), document.getElementById('health-result'));
+      });
+    </script>
+  </body>
+</html>
