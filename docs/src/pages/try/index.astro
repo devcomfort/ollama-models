@@ -29,58 +29,137 @@
       pre.visible { display: block; }
       a.back { color: var(--accent); text-decoration: none; font-size: 0.875rem; }
       a.back:hover { text-decoration: underline; }
+      .lang-switch { position: absolute; top: 1rem; right: 1rem; }
+      .lang-switch button { padding: 0.3rem 0.6rem; font-size: 0.75rem; margin-left: 0.25rem; }
     </style>
   </head>
   <body>
-    <a class="back" href="/en/">← Back to docs</a>
-    <h1>Try ollama-models API</h1>
-    <p class="sub">Search and explore Ollama models interactively.</p>
+    <div class="lang-switch">
+      <button onclick="setLang('en')">EN</button>
+      <button onclick="setLang('ko')">한국어</button>
+    </div>
+    <a class="back" id="back-link" href="/en/">← Back to docs</a>
+    <h1 id="title"></h1>
+    <p class="sub" id="subtitle"></p>
 
     <section>
-      <h2>🔍 Search Models</h2>
+      <h2 id="search-title"></h2>
       <form id="search-form">
-        <input type="text" id="search-q" placeholder="e.g. qwen3, llama, code" />
-        <button type="submit">Search</button>
+        <input type="text" id="search-q" />
+        <button type="submit" id="search-btn"></button>
       </form>
       <div class="status" id="search-status"></div>
       <pre id="search-result"><code></code></pre>
     </section>
 
     <section>
-      <h2>📦 Get Model Tags</h2>
+      <h2 id="model-title"></h2>
       <form id="model-form">
-        <input type="text" id="model-name" placeholder="e.g. library/qwen3" />
-        <button type="submit">Get Tags</button>
+        <input type="text" id="model-name" />
+        <button type="submit" id="model-btn"></button>
       </form>
       <div class="status" id="model-status"></div>
       <pre id="model-result"><code></code></pre>
     </section>
 
     <section>
-      <h2>💚 Health Check</h2>
-      <button id="health-btn">Check Health</button>
+      <h2 id="health-title"></h2>
+      <button id="health-btn"></button>
       <div class="status" id="health-status"></div>
       <pre id="health-result"><code></code></pre>
     </section>
 
     <script is:inline>
       var API = '/api';
-
-      async function call(path, statusEl, resultEl) {
-        statusEl.className = 'status loading';
-        statusEl.textContent = 'Loading...';
-        resultEl.classList.remove('visible');
-        try {
-          var res = await fetch(API + path);
-          var data = await res.json();
-          statusEl.className = 'status ' + (res.ok ? 'ok' : 'err');
-          statusEl.textContent = res.ok ? 'Success (HTTP ' + res.status + ')' : 'Error (HTTP ' + res.status + ')';
-          resultEl.querySelector('code').textContent = JSON.stringify(data, null, 2);
-          resultEl.classList.add('visible');
-        } catch (e) {
-          statusEl.className = 'status err';
-          statusEl.textContent = 'Network error: ' + e.message;
+      var i18n = {
+        en: {
+          back: '← Back to docs',
+          title: 'Try ollama-models API',
+          subtitle: 'Search and explore Ollama models interactively.',
+          searchTitle: '🔍 Search Models',
+          searchPlaceholder: 'e.g. qwen3, llama, code',
+          searchBtn: 'Search',
+          modelTitle: '📦 Get Model Tags',
+          modelPlaceholder: 'e.g. library/qwen3',
+          modelBtn: 'Get Tags',
+          healthTitle: '💚 Health Check',
+          healthBtn: 'Check Health',
+          loading: 'Loading...',
+          success: 'Success',
+          error: 'Error',
+          networkError: 'Network error',
+        },
+        ko: {
+          back: '← 문서로 돌아가기',
+          title: 'ollama-models API 체험하기',
+          subtitle: 'Ollama 모델을 대화형으로 검색하고 탐색하세요.',
+          searchTitle: '🔍 모델 검색',
+          searchPlaceholder: '예: qwen3, llama, code',
+          searchBtn: '검색',
+          modelTitle: '📦 모델 태그 조회',
+          modelPlaceholder: '예: library/qwen3',
+          modelBtn: '태그 조회',
+          healthTitle: '💚 헬스 체크',
+          healthBtn: '상태 확인',
+          loading: '로딩 중...',
+          success: '성공',
+          error: '오류',
+          networkError: '네트워크 오류',
         }
+      };
+
+      function detectLang() {
+        var saved = localStorage.getItem('lang');
+        if (saved && i18n[saved]) return saved;
+        var langs = navigator.languages ? Array.from(navigator.languages) : [navigator.language || 'en'];
+        for (var i = 0; i < langs.length; i++) {
+          var tag = langs[i].toLowerCase().split('-')[0];
+          if (tag === 'ko') return 'ko';
+        }
+        return 'en';
+      }
+
+      function setLang(lang) {
+        localStorage.setItem('lang', lang);
+        applyLang(lang);
+      }
+
+      function applyLang(lang) {
+        var t = i18n[lang];
+        document.getElementById('back-link').textContent = t.back;
+        document.getElementById('back-link').href = '/' + lang + '/';
+        document.getElementById('title').textContent = t.title;
+        document.getElementById('subtitle').textContent = t.subtitle;
+        document.getElementById('search-title').textContent = t.searchTitle;
+        document.getElementById('search-q').placeholder = t.searchPlaceholder;
+        document.getElementById('search-btn').textContent = t.searchBtn;
+        document.getElementById('model-title').textContent = t.modelTitle;
+        document.getElementById('model-name').placeholder = t.modelPlaceholder;
+        document.getElementById('model-btn').textContent = t.modelBtn;
+        document.getElementById('health-title').textContent = t.healthTitle;
+        document.getElementById('health-btn').textContent = t.healthBtn;
+        document.documentElement.lang = lang;
+      }
+
+      var lang = detectLang();
+      applyLang(lang);
+
+      function call(path, statusEl, resultEl) {
+        var t = i18n[lang];
+        statusEl.className = 'status loading';
+        statusEl.textContent = t.loading;
+        resultEl.classList.remove('visible');
+        fetch(API + path).then(function(res) {
+          return res.json().then(function(data) {
+            statusEl.className = 'status ' + (res.ok ? 'ok' : 'err');
+            statusEl.textContent = res.ok ? t.success + ' (HTTP ' + res.status + ')' : t.error + ' (HTTP ' + res.status + ')';
+            resultEl.querySelector('code').textContent = JSON.stringify(data, null, 2);
+            resultEl.classList.add('visible');
+          });
+        }).catch(function(e) {
+          statusEl.className = 'status err';
+          statusEl.textContent = t.networkError + ': ' + e.message;
+        });
       }
 
       document.getElementById('search-form').addEventListener('submit', function(e) {

@@ -13,6 +13,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License"></a>
 </p>
 
+**English** | [한국어](README.ko.md)
+
 Search and list [Ollama](https://ollama.com) model weights programmatically. Ollama does not provide a public registry API — this project scrapes SSR HTML and exposes the data as structured JSON through a Cloudflare Workers API.
 
 | Service | URL |
@@ -199,11 +201,12 @@ api/                  Cloudflare Workers API (Hono + Zod OpenAPI)
   src/search/         Search scraper + handler
   src/model/          Model scraper
   src/health/         Health check logic
-  src/health/         Health check logic
   src/lib/            Shared utilities (cache, fetchWithRetry)
 packages/
   ts-client/          TypeScript client (@devcomfort/ollama-models)
   py-client/          Python client (ollama-models)
+workers/
+  alerts/             Tail Worker: real-time error → email alerts
 docs/                 Documentation site (Astro Starlight)
 scripts/              CI/CD scripts (smoke-ts-client.sh, e2e.sh)
 ```
