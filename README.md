@@ -1,7 +1,7 @@
 # ollama-models
 
 <p align="center">
-  <a href="https://ollama-models.pages.dev"><img src="https://img.shields.io/badge/docs-ollama--models.pages.dev-2EB67D" alt="Docs"></a>
+  <a href="https://ollama.devcomfort.me"><img src="https://img.shields.io/badge/docs-ollama.devcomfort.me-2EB67D" alt="Docs"></a>
   <a href="https://www.npmjs.com/package/@devcomfort/ollama-models"><img src="https://img.shields.io/npm/v/@devcomfort/ollama-models?color=cb3837&label=npm" alt="npm"></a>
   <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/v/ollama-models?color=3775A9&label=pypi" alt="PyPI"></a>
   <a href="https://pypi.org/project/ollama-models/"><img src="https://img.shields.io/pypi/pyversions/ollama-models" alt="Python versions"></a>
@@ -17,7 +17,7 @@ Search and list [Ollama](https://ollama.com) model weights programmatically. Oll
 
 | Service | URL |
 |---------|-----|
-| 📖 Documentation | [ollama-models.pages.dev](https://ollama-models.pages.dev) |
+| 📖 Documentation | [ollama.devcomfort.me](https://ollama.devcomfort.me) |
 | 🔌 API | [ollama-models-api.devcomfort.workers.dev](https://ollama-models-api.devcomfort.workers.dev) |
 
 ---
@@ -160,7 +160,7 @@ Cron */5 min → /health probe ×3 → structure_change?
 - **race protection**: Both health-monitor and auto-heal check for existing open PRs/issues before acting
 - **Email alerts**: Runtime errors are sent via Cloudflare Email Service to the configured address
 
-Read more in the [Auto-Heal documentation](https://ollama-models.pages.dev/en/auto-heal/).
+Read more in the [Auto-Heal documentation](https://ollama.devcomfort.me/en/auto-heal/).
 
 ---
 

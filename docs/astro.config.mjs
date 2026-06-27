@@ -2,7 +2,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-  site: 'https://ollama-models.pages.dev',
+  site: 'https://ollama.devcomfort.me',
   integrations: [
     starlight({
       title: 'ollama-models',
