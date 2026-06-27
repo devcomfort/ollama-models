@@ -142,10 +142,3 @@ jobs:
             -f run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             -f ref="${TARGET_REF:-}"
 
-      - name: Notify structure change detected
-        if: steps.probe.outputs.trigger == 'true'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          chmod +x scripts/notify.sh
-          ./scripts/notify.sh slack warning "Health: structure_change detected" "3 consecutive probes returned structure_change\nAuto-heal triggered\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

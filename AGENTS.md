@@ -66,8 +66,7 @@ pnpm test:py           # Python tests (39, via rye run pytest)
 - Constants: `SCREAMING_SNAKE_CASE`
 - Functions/variables: `camelCase`
 - Classes/interfaces: `PascalCase`
-- Error handling: `assert()` from `es-toolkit/util` for post-parse validation
-- Alert delivery: fire-and-forget, silently swallow failures (must not interfere with caller)
+- Error handling: scrapers throw `Error` with descriptive messages; route handlers catch and return structured `ErrorResponse`
 
 ### Python
 
@@ -95,14 +94,9 @@ pnpm test:py           # Python tests (39, via rye run pytest)
 - `SCRAPE_NO_RESULTS` — 502
 - `INTERNAL_ERROR` — 500
 
-### Multi-Channel Alerts
+### Runtime Error Alerts
 
-`AlertService` facade dispatches to all configured channels via `Promise.allSettled`:
-- `SlackChannel` — Slack webhook
-- `DiscordChannel` — Discord embed (severity-colored)
-- `EmailChannel` — Generic email webhook
-
-Webhook URLs are environment secrets (Cloudflare Workers secrets), not in `wrangler.toml`.
+Tail Worker (`workers/alerts/`) receives real-time execution events from the API Worker via `tail_consumers`. Sends email alerts via Cloudflare Email Service for any non-`ok` outcome. Recipient configured via `ALERT_EMAIL_TO` secret.
 
 ### Config
 
@@ -124,7 +118,6 @@ api/
     search/               # scraper.ts, search.ts, schemas.ts, types.ts
     model/                # scraper.ts, schemas.ts, types.ts
     health/               # check.ts, schemas.ts, types.ts
-    alerts/               # service.ts, types.ts, adapters/{slack,discord,email}.ts
     __tests__/            # index.test.ts, search/, model/
   scripts/
     ci-server.ts          # Production app under Node.js (integration tests)
@@ -133,4 +126,6 @@ api/
 packages/
   ts-client/            # NPM: @devcomfort/ollama-models
   py-client/            # PyPI: ollama-models
+workers/
+  alerts/               # Tail Worker: real-time error → email alerts
 ```

@@ -158,7 +158,7 @@ Cron */5 min → /health probe ×3 → structure_change?
 - **attempts 1–3**: OpenCode creates a fix PR with `auto-heal` and `attempt-N` labels
 - **attempt ≥4**: Pipeline stops auto-healing and creates a `needs-human` issue
 - **race protection**: Both health-monitor and auto-heal check for existing open PRs/issues before acting
-- **Slack notifications**: All pipeline events (failures, escalations, PR creation) are reported to the configured Slack channel
+- **Email alerts**: Runtime errors are sent via Cloudflare Email Service to the configured address
 
 Read more in the [Auto-Heal documentation](https://ollama-models.pages.dev/en/auto-heal/).
 
@@ -199,13 +199,13 @@ api/                  Cloudflare Workers API (Hono + Zod OpenAPI)
   src/search/         Search scraper + handler
   src/model/          Model scraper
   src/health/         Health check logic
-  src/alerts/channels/ Alert adapters (Slack, Discord, Email)
+  src/health/         Health check logic
   src/lib/            Shared utilities (cache, fetchWithRetry)
 packages/
   ts-client/          TypeScript client (@devcomfort/ollama-models)
   py-client/          Python client (ollama-models)
 docs/                 Documentation site (Astro Starlight)
-scripts/              CI/CD scripts (notify.sh, smoke-ts-client.sh, e2e.sh)
+scripts/              CI/CD scripts (smoke-ts-client.sh, e2e.sh)
 ```
 
 ---

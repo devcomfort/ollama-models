@@ -40,45 +40,37 @@ This runs `wrangler deploy` from the `api/` directory. Wrangler transpiles TypeS
 
 ## Observability
 
-Scraper failures are logged as structured JSON via `console.error()` and surfaced in Cloudflare Workers Logs. No webhook secrets or external integrations are needed at the runtime level.
+Scraper failures are logged as structured JSON via `console.error()` and surfaced in Cloudflare Workers Logs. Runtime errors are also sent as email alerts via a Tail Worker using Cloudflare Email Service.
 
-### GitHub Actions (CI/CD notifications)
+### Runtime Error Alerts (Cloudflare Email Service)
 
-The same webhook URLs are used for GitHub Actions notifications. Set them as [repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository):
+A Tail Worker (`workers/alerts/`) receives real-time execution events from the API Worker and sends email alerts for any non-`ok` outcome.
 
+**Setup:**
+
+1. **Email Routing — verify your email:**
+   - Dashboard → Email Routing → Destination addresses → Add address
+   - Enter your email → click the confirmation link
+
+2. **Email Sending — onboard domain:**
+   - Dashboard → Compute → Email Service → Email Sending → Onboard Domain
+   - Select `devcomfort.me` (Cloudflare auto-adds SPF, DKIM, DMARC records)
+
+3. **Set the recipient secret:**
 ```bash
-gh secret set SLACK_WEBHOOK_URL --body "https://hooks.slack.com/services/T.../B.../..." -R devcomfort/ollama-models
+cd workers/alerts
+wrangler secret put ALERT_EMAIL_TO
+# Enter your email address
 ```
 
-### Creating a Slack Webhook
+4. **Deploy the Tail Worker:**
+```bash
+wrangler deploy
+```
 
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
-2. Name it (e.g., `ollama-models`), pick a workspace
-3. Sidebar → **Incoming Webhooks** → toggle **Activate**
-4. Click **Add New Webhook to Workspace**, pick a channel
-5. Copy the generated URL (`https://hooks.slack.com/services/T.../B.../...`)
+### CI/CD Failures
 
-## Notifications
-
-CI/CD notifications are handled by `scripts/notify.sh` in GitHub Actions workflows (not in the Worker runtime).
-
-### Slack format
-
-Messages use [Block Kit](https://api.slack.com/reference/block-kit/blocks) with:
-- Severity-colored sidebar (red for `critical`, yellow for `warning`, green for `info`)
-- Context footer showing job, branch, and a link to the run
-
-### Notification points
-
-| Workflow | Trigger | Severity |
-|----------|---------|----------|
-| `deploy.yml` | API deploy failed | critical |
-| `deploy.yml` | E2E tests failed | critical |
-| `deploy.yml` | Full deploy succeeded | info |
-| `health-monitor.yml` | `structure_change` detected (3x) | warning |
-| `auto-heal.yml` | Escalation after 3 attempts | critical |
-| `auto-heal.yml` | PR created by auto-heal | info |
-| `ci.yml` | Test failure on `main` | critical |
+CI failures (deploy, E2E, health check) are visible in the GitHub Actions UI. No external notification channel is configured.
 
 ## Environment Variables
 
@@ -113,7 +105,7 @@ Messages use [Block Kit](https://api.slack.com/reference/block-kit/blocks) with:
 - deploy-py-client → Handled by publish-pypi.yml on py-v* tag
 ```
 
-CI failures are reported via [Slack notifications](#notifications). Documentation-only commits skip deployment.
+CI failures are visible in the GitHub Actions UI. Documentation-only commits skip deployment.
 
 ### Local Development
 

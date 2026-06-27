@@ -3,11 +3,5 @@ main = "index.js"
 compatibility_date = "2024-11-01"
 # account_id is provided via CLOUDFLARE_ACCOUNT_ID env var at deploy time.
 
-# To enable email alerts (Cloudflare Email Service):
-# 1. Verify your domain in Cloudflare Dashboard → Compute → Email Service → Email Sending
-# 2. Uncomment the binding below
-# 3. Set ALERT_EMAIL_TO secret: `wrangler secret put ALERT_EMAIL_TO`
-# 4. Deploy: `wrangler deploy`
-#
-# [[send_email]]
-# name = "EMAIL"
+[[send_email]]
+name = "EMAIL"

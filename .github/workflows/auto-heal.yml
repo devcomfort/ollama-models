@@ -123,13 +123,6 @@ jobs:
           echo "attempt_number=${attempt}" >> "$GITHUB_OUTPUT"
           echo "attempt_label=attempt-${attempt}" >> "$GITHUB_OUTPUT"
 
-      - name: Notify escalation
-        if: steps.gate.outputs.proceed == 'false'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          chmod +x scripts/notify.sh
-          ./scripts/notify.sh slack critical "Auto-heal exhausted after 3 attempts" "Manual intervention required\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   heal:
     needs: triage
@@ -174,10 +167,3 @@ jobs:
              5. Open a PR with labels `auto-heal` and `${{ needs.triage.outputs.attempt_label }}`
              6. DO NOT auto-merge. A human must review and merge.
 
-      - name: Notify auto-heal PR created
-        if: success()
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        run: |
-          chmod +x scripts/notify.sh
-          ./scripts/notify.sh slack info "Auto-heal PR created" "Attempt ${{ needs.triage.outputs.attempt_number }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
