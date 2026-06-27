@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Post-build smoke test for @devcomfort/ollama-models
+# Post-build smoke test for ollama-models
 #
 # Verifies that the built dist/ artifacts (CJS, ESM, DTS) are loadable
 # and that all public exports are intact. Designed to run in CI after
-# `pnpm --filter @devcomfort/ollama-models build`.
+# `pnpm --filter ollama-models build`.
 #
 # Exit codes:
 #   0 — all checks passed

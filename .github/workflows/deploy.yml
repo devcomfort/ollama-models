@@ -7,7 +7,7 @@
 #   2. verify-staging    — Health check + smoke tests against staging.
 #   3. deploy-production — Deploy Tail Worker + API to production.
 #   4. e2e               — Run the full E2E suite against production.
-#   5. deploy-ts-client  — Publish @devcomfort/ollama-models to npm.
+#   5. deploy-ts-client  — Publish ollama-models to npm.
 #   6. deploy-docs       — Deploy docs to Cloudflare Pages.
 
 name: Deploy
