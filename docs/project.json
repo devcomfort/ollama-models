@@ -10,7 +10,7 @@
       "cache": false
     },
     "build": {
-      "command": "pnpm exec astro build",
+      "command": "pnpm exec astro build && cp -r functions dist/functions",
       "options": { "cwd": "{projectRoot}" },
       "outputs": ["{projectRoot}/dist"],
       "cache": true
