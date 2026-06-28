@@ -63,7 +63,7 @@ export const SearchQuerySchema = z.object({
     example: 'qwen',
   }),
   page: z.string().optional().openapi({
-    description: 'Page number, 1-based (optional) / 페이지 번호, 1부터 시작 (선택)',
+    description: 'Page number or range (1-based). Single: "1". Range: "1-3". / 페이지 번호 또는 범위. 단일: "1", 범위: "1-3"',
     example: '1',
   }),
 }).openapi('SearchQuery');
@@ -117,5 +117,8 @@ export const SearchResultSchema = z.object({
   }),
   keyword: z.string().openapi({
     description: 'The search keyword that was used (required) / 사용된 검색 키워드 (필수)',
+  }),
+  failed_pages: z.array(z.number()).optional().openapi({
+    description: 'Page numbers that failed after all retries. Only present when some pages could not be fetched. / 모든 재시도 후에도 실패한 페이지 번호. 일부 페이지를 가져올 수 없었을 때만 존재.',
   }),
 }).openapi('SearchResult');

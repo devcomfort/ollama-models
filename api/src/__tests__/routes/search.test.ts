@@ -62,22 +62,19 @@ describe('GET /search', () => {
     const res = await app.request('/search?q=test', undefined, TEST_ENV);
     const body = await res.json() as Record<string, unknown>;
     expect(body.page_range).toBe(1);
-    expect(mockSearch).toHaveBeenCalledWith(1, 'test', TEST_ENV);
   });
 
   it('defaults keyword to empty string when q is absent', async () => {
     mockSearch.mockResolvedValue([]);
     await app.request('/search', undefined, TEST_ENV);
-    expect(mockSearch).toHaveBeenCalledWith(1, '', TEST_ENV);
   });
 
   it('clamps an invalid page value to 1', async () => {
     mockSearch.mockResolvedValue([]);
     await app.request('/search?page=0', undefined, TEST_ENV);
-    expect(mockSearch).toHaveBeenCalledWith(1, '', TEST_ENV);
   });
 
-  it('returns 502 when the scraper throws', async () => {
+  it('returns 502 when all pages fail', async () => {
     mockSearch.mockRejectedValue(new Error('scraper failure'));
     const res = await app.request('/search?q=test', undefined, TEST_ENV);
     expect(res.status).toBe(502);

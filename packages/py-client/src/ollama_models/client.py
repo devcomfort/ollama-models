@@ -46,16 +46,16 @@ class OllamaModelsClient:
     # Search
     # ------------------------------------------------------------------
 
-    def search(self, keyword: str = "", page: int = 1) -> SearchResult:
+    def search(self, keyword: str = "", page: Union[int, str] = 1) -> SearchResult:
         """Search Ollama models by keyword (sync).
 
         Args:
             keyword: Search term. Pass an empty string to list all models.
-            page: 1-based page number of the search results.
+            page: 1-based page number or range string (e.g. "1-3").
 
         Returns:
             A :class:`~ollama_models.types.SearchResult` containing the
-            model pages found on the requested page.
+            model pages found on the requested page(s).
 
         Raises:
             httpx.HTTPStatusError: If the API returns a 4xx or 5xx response.
@@ -69,16 +69,16 @@ class OllamaModelsClient:
             data = res.json()
         return _parse_search_result(data)
 
-    async def search_async(self, keyword: str = "", page: int = 1) -> SearchResult:
+    async def search_async(self, keyword: str = "", page: Union[int, str] = 1) -> SearchResult:
         """Search Ollama models by keyword (async).
 
         Args:
             keyword: Search term. Pass an empty string to list all models.
-            page: 1-based page number of the search results.
+            page: 1-based page number or range string (e.g. "1-3").
 
         Returns:
             A :class:`~ollama_models.types.SearchResult` containing the
-            model pages found on the requested page.
+            model pages found on the requested page(s).
 
         Raises:
             httpx.HTTPStatusError: If the API returns a 4xx or 5xx response.
@@ -205,6 +205,7 @@ def _parse_search_result(data: dict) -> SearchResult:
         ],
         page_range=page_range,
         keyword=str(data["keyword"]),
+        failed_pages=data.get("failed_pages"),
     )
 
 

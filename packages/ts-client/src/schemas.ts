@@ -44,6 +44,9 @@ export function assertSearchResult(data: unknown): asserts data is SearchResult 
     'SearchResult.page_range: expected number or { from: number; to: number }',
   );
   assert(typeof data['keyword'] === 'string', 'SearchResult.keyword: expected string');
+  if (data['failed_pages'] !== undefined) {
+    assert(Array.isArray(data['failed_pages']), 'SearchResult.failed_pages: expected array');
+  }
 }
 
 /**

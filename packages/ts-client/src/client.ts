@@ -43,17 +43,21 @@ export class OllamaModelsClient {
    * Search for models on Ollama.
    *
    * @param keyword - Search term. Pass an empty string to list all models.
-   * @param page - 1-based page number. Defaults to `1`.
-   * @returns A {@link SearchResult} containing matching model pages and
-   *   metadata about the requested page.
+   * @param page - 1-based page number or range string (e.g. "1-3"). Defaults to `1`.
+   * @returns A {@link SearchResult} containing matching model pages,
+   *   metadata about the requested page, and any failed pages.
    * @throws {Error} When the API returns a non-2xx HTTP status.
    * @example
    * ```typescript
-   * const { pages, page_range, keyword } = await client.search('qwen3', 1);
-   * const firstUrl = pages[0].http_url;
+   * // Single page
+   * const { pages } = await client.search('qwen3', 1);
+   *
+   * // Range of pages
+   * const { pages, failed_pages } = await client.search('qwen3', '1-3');
+   * if (failed_pages) console.warn('Failed pages:', failed_pages);
    * ```
    */
-  async search(keyword = '', page = 1): Promise<SearchResult> {
+  async search(keyword = '', page: number | string = 1): Promise<SearchResult> {
     const url = new URL(`${this.baseUrl}/search`);
     if (keyword) url.searchParams.set('q', keyword);
     url.searchParams.set('page', String(page));

@@ -172,12 +172,11 @@ describe('search() — maxRetries', () => {
     expect(result.pages).toEqual(PAGE_1);
   });
 
-  it('drops the page after exhausting all retries', async () => {
+  it('throws after exhausting all retries (all pages failed)', async () => {
     mockScrape.mockRejectedValue(new Error('HTTP 503'));
 
-    const result = await search('qwen3', 1, 2, TEST_ENV);
+    await expect(search('qwen3', 1, 2, TEST_ENV)).rejects.toThrow('HTTP 503');
     expect(mockScrape).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
-    expect(result.pages).toEqual([]);
   });
 
   it('retries each page independently', async () => {

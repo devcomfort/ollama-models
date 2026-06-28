@@ -34,11 +34,13 @@ class SearchResult:
         pages: Model pages found on the requested search page.
         page_range: The page number (or range) that was requested.
         keyword: The search keyword used for the request.
+        failed_pages: Page numbers that failed after all retries.
     """
 
     pages: List[ModelPage]
     page_range: PageRange
     keyword: str
+    failed_pages: Optional[List[int]] = None
 
 
 @dataclass

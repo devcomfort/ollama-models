@@ -61,6 +61,8 @@ export interface SearchResult {
   page_range: PageRange;
   /** Search keyword used for the request. */
   keyword: string;
+  /** Page numbers that failed after all retries. Only present when some pages could not be fetched. */
+  failed_pages?: number[];
 }
 
 /**

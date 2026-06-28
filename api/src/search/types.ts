@@ -94,4 +94,12 @@ export interface SearchResult {
    * 요청에 사용된 검색 키워드.
    */
   keyword: string;
+  /**
+   * Page numbers that failed after all retries. Only present when
+   * a range was requested and some pages could not be fetched.
+   *
+   * 모든 재시도 후에도 실패한 페이지 번호. 범위 요청 시 일부 페이지를
+   * 가져올 수 없었을 때만 존재한다.
+   */
+  failed_pages?: number[];
 }
