@@ -1,3 +1,8 @@
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright/
 # Nx
 .nx/cache
 .nx/workspace-data
@@ -369,7 +374,7 @@ __marimo__/
 # Cloudflare Wrangler
 .wrangler/
 
-# Rye virtual envs
+# Python virtual envs
 .venv/
 .python-version
 

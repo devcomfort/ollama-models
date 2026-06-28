@@ -64,6 +64,8 @@ jobs:
         run: npx nx type-check api
       - name: Run API unit tests
         run: npx nx test api
+      - name: Check OpenAPI spec freshness
+        run: npx nx exec api --command "pnpm exec tsx scripts/gen-openapi.ts && git diff --exit-code api/openapi.json"
 
 
   # ─── TypeScript client: unit tests + integration tests ───────────────────────
@@ -123,3 +125,71 @@ jobs:
 
       - name: Run Python integration tests (against Node.js mock server)
         run: pytest packages/py-client/tests/integration/ -v
+
+  # ─── Coverage badge update ───────────────────────────────────────────────────
+  coverage:
+    name: Update coverage badges
+    runs-on: ubuntu-latest
+    needs: [api, ts-client, py-client]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          pip install packages/py-client/ "pytest-cov>=6.0.0" "pytest-asyncio>=0.23.0" "pytest-httpx>=0.21.0"
+
+      - name: Run API coverage
+        id: api-cov
+        run: |
+          cd api && pnpm exec vitest run --coverage 2>&1 | tee ../api-cov.txt
+          COV=$(grep "Lines" ../api-cov.txt | grep -oP '[\d.]+%' | head -1)
+          echo "pct=$COV" >> $GITHUB_OUTPUT
+
+      - name: Run TS client coverage
+        id: ts-cov
+        run: |
+          cd packages/ts-client && pnpm exec vitest run --coverage 2>&1 | tee ../../ts-cov.txt
+          COV=$(grep "Lines" ../../ts-cov.txt | grep -oP '[\d.]+%' | head -1)
+          echo "pct=$COV" >> $GITHUB_OUTPUT
+
+      - name: Run Python coverage
+        id: py-cov
+        run: |
+          cd packages/py-client && pytest --cov=src/ollama_models --cov-report=term-missing 2>&1 | tee ../../py-cov.txt
+          COV=$(grep "TOTAL" ../../py-cov.txt | awk '{print $NF}')
+          echo "pct=${COV}%" >> $GITHUB_OUTPUT
+
+      - name: Update README badges
+        run: |
+          API_PCT="${{ steps.api-cov.outputs.pct }}"
+          TS_PCT="${{ steps.ts-cov.outputs.pct }}"
+          PY_PCT="${{ steps.py-cov.outputs.pct }}"
+          # Strip % and round to integer for badge URL
+          API_NUM=$(printf "%.0f" "${API_PCT%%\%}")
+          TS_NUM=$(printf "%.0f" "${TS_PCT%%\%}")
+          PY_NUM=$(printf "%.0f" "${PY_PCT%%\%}")
+          sed -i "s|coverage_API-[0-9.]*%25|coverage_API-${API_NUM}%25|g" README.md
+          sed -i "s|coverage_TS-[0-9.]*%25|coverage_TS-${TS_NUM}%25|g" README.md
+          sed -i "s|coverage_Python-[0-9.]*%25|coverage_Python-${PY_NUM}%25|g" README.md
+
+      - name: Commit updated badges
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --cached --quiet || git commit -m "chore: update coverage badges" && git push

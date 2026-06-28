@@ -9,7 +9,7 @@
         "search",
         "registry"
     ],
-    "license": "MIT",
+    "license": "BSD-3-Clause",
     "author": "devcomfort <im@devcomfort.me>",
     "repository": {
         "type": "git",
@@ -40,7 +40,5 @@
         "typescript": "^5.0.0",
         "vitest": "^4.1.9"
     },
-    "dependencies": {
-        "es-toolkit": "^1.45.1"
-    }
+    "dependencies": {}
 }
