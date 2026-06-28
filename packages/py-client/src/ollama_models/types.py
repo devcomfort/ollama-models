@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Union
+
 
 
 @dataclass
@@ -15,7 +15,7 @@ class PageRangeDetail:
 
 
 # A single 1-based page number, or an inclusive from/to page range.
-PageRange = Union[int, PageRangeDetail]
+PageRange = int | PageRangeDetail
 
 
 @dataclass
@@ -37,10 +37,10 @@ class SearchResult:
         failed_pages: Page numbers that failed after all retries.
     """
 
-    pages: List[ModelPage]
+    pages: list[ModelPage]
     page_range: PageRange
     keyword: str
-    failed_pages: Optional[List[int]] = None
+    failed_pages: list[int] | None = None
 
 
 @dataclass
@@ -56,8 +56,8 @@ class ModelTags:
 
     page_url: str
     id: str
-    tags: List[str]
-    default_tag: Optional[str]
+    tags: list[str]
+    default_tag: str | None
 
 
 @dataclass
@@ -65,9 +65,9 @@ class CheckResult:
     """Result of a single scraper probe returned inside :class:`HealthStatus`."""
 
     ok: bool
-    count: Optional[int] = None
-    error: Optional[str] = None
-
+    count: int | None = None
+    error: str | None = None
+    kind: str | None = None
 
 @dataclass
 class HealthStatus:
@@ -81,7 +81,8 @@ class HealthStatus:
             "checks": {
                 "search": {"ok": True, "count": 20},
                 "model": {"ok": True, "count": 15}
-            }
+            },
+            "failure_kind": null
         }
 
     This class intentionally flattens the ``checks`` wrapper so callers can
@@ -94,3 +95,4 @@ class HealthStatus:
     timestamp: str
     search: CheckResult
     model: CheckResult
+    failure_kind: str | None = None

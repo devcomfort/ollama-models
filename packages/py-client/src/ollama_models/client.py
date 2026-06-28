@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict
-
 import httpx
+
 
 from .types import (
     ModelTags,
@@ -60,7 +59,7 @@ class OllamaModelsClient:
         Raises:
             httpx.HTTPStatusError: If the API returns a 4xx or 5xx response.
         """
-        params: Dict[str, str] = {"page": str(page)}
+        params: dict[str, str] = {"page": str(page)}
         if keyword:
             params["q"] = keyword
         with httpx.Client() as client:
@@ -83,7 +82,7 @@ class OllamaModelsClient:
         Raises:
             httpx.HTTPStatusError: If the API returns a 4xx or 5xx response.
         """
-        params: Dict[str, str] = {"page": str(page)}
+        params: dict[str, str] = {"page": str(page)}
         if keyword:
             params["q"] = keyword
         async with httpx.AsyncClient() as client:
@@ -243,6 +242,7 @@ def _parse_health_status(data: dict) -> HealthStatus:
             ok=bool(c["ok"]),
             count=int(c["count"]) if c.get("count") is not None else None,
             error=str(c["error"]) if c.get("error") is not None else None,
+            kind=c.get("kind"),
         )
 
     checks = data["checks"]
@@ -251,4 +251,5 @@ def _parse_health_status(data: dict) -> HealthStatus:
         timestamp=str(data["timestamp"]),
         search=_parse_check(checks["search"]),
         model=_parse_check(checks["model"]),
+        failure_kind=data.get("failure_kind"),
     )

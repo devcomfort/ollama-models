@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-  createProbeModel,
   PROBE_KEYWORD,
   runHealthCheck,
 } from '../../health/check';
@@ -13,24 +12,6 @@ const TEST_ENV = {
   OLLAMA_ACCEPT_LANGUAGE: 'en-US,en;q=0.9',
 };
 
-// === createProbeModel ===
-// 검증 범위:
-// - http_url이 OLLAMA_BASE를 기반으로 구성되는가.
-// - model_id가 올바른 값인가.
-
-describe('createProbeModel', () => {
-  // Q. http_url이 기본값으로 구성되는가?
-  it('builds http_url from OLLAMA_BASE', () => {
-    const model = createProbeModel(TEST_ENV);
-    expect(model.http_url).toBe('https://ollama.com/library/qwen3');
-  });
-
-  // Q. model_id가 library/qwen3인가?
-  it('returns model_id as library/qwen3', () => {
-    const model = createProbeModel(TEST_ENV);
-    expect(model.model_id).toBe('library/qwen3');
-  });
-});
 
 // === runHealthCheck ===
 // scrapeSearchPage / scrapeModelPage를 모킹하여 각 분기를 검증한다.
@@ -85,10 +66,9 @@ describe('runHealthCheck', () => {
     expect(new Date(status.timestamp).toISOString()).toBe(status.timestamp);
   });
 
-  // Q. search 스크래퍼가 실패하면 ok: false이고 search.error에 에러 메시지가 담기는가?
-  it('returns ok:false and captures search.error when the search scraper throws', async () => {
+  // Q. search 스크래퍼가 실패하면 ok: false이고 model도 skipped?
+  it('returns ok:false when search fails; model probe is skipped', async () => {
     mockSearch.mockRejectedValue(new ParseError("selector 'a.group.w-full' may no longer match"));
-    mockModel.mockResolvedValue({ page_url: '', id: '', tags: ['qwen3:latest'], default_tag: 'qwen3:latest' });
 
     const status = await runHealthCheck(TEST_ENV);
 
@@ -96,6 +76,8 @@ describe('runHealthCheck', () => {
     expect(status.checks.search.ok).toBe(false);
     expect(status.checks.search.error).toContain('a.group.w-full');
     expect(status.checks.search.kind).toBe('structure_change');
+    expect(status.checks.model.ok).toBe(false);
+    expect(status.checks.model.kind).toBe('structure_change'); // skipped
     expect(status.failure_kind).toBe('structure_change');
   });
 
@@ -107,75 +89,78 @@ describe('runHealthCheck', () => {
     const status = await runHealthCheck(TEST_ENV);
 
     expect(status.ok).toBe(false);
+    expect(status.checks.search.ok).toBe(true);
     expect(status.checks.model.ok).toBe(false);
     expect(status.checks.model.error).toContain('network timeout');
     expect(status.checks.model.kind).toBe('network_error');
     expect(status.failure_kind).toBe('network_error');
   });
 
-  // Q. 두 스크래퍼 모두 실패해도 예외를 던지지 않고 ok: false를 반환하는가?
-  it('두 스크래퍼 모두 실패해도 예외를 던지지 않고 ok: false를 반환하는가', async () => {
+  // Q. search 실패 시 model도 skipped되어 둘 다 ok: false?
+  it('search 실패 시 model도 skipped되어 둘 다 ok: false', async () => {
     mockSearch.mockRejectedValue(new Error('A'));
-    mockModel.mockRejectedValue(new Error('B'));
 
-    await expect(runHealthCheck(TEST_ENV)).resolves.toMatchObject({ ok: false });
+    const status = await runHealthCheck(TEST_ENV);
+
+    expect(status.ok).toBe(false);
+    expect(status.checks.search.ok).toBe(false);
+    expect(status.checks.model.ok).toBe(false);
   });
 
   // Q. UpstreamError가 upstream_down으로 분류되는가?
   it('업스트림 에러가 upstream_down으로 분류되는가', async () => {
     mockSearch.mockRejectedValue(new UpstreamError('Ollama returned HTTP 503', 503));
-    mockModel.mockResolvedValue({ page_url: '', id: '', tags: ['qwen3:latest'], default_tag: 'qwen3:latest' });
 
     const status = await runHealthCheck(TEST_ENV);
 
     expect(status.checks.search.kind).toBe('upstream_down');
-    expect(status.failure_kind).toBe('upstream_down');
+    expect(status.checks.model.kind).toBe('structure_change'); // skipped
+    expect(status.failure_kind).toBe('structure_change'); // model skipped
   });
 
   // Q. 빈 HTML이 구조 변경으로 분류되는가?
   it('빈 HTML이 구조 변경으로 분류되는가', async () => {
     mockSearch.mockRejectedValue(new ParseError('no model cards found'));
-    mockModel.mockResolvedValue({ page_url: '', id: '', tags: ['qwen3:latest'], default_tag: 'qwen3:latest' });
 
     const status = await runHealthCheck(TEST_ENV);
 
     expect(status.checks.search.kind).toBe('structure_change');
+    expect(status.checks.model.kind).toBe('structure_change'); // skipped
     expect(status.failure_kind).toBe('structure_change');
   });
 
   // Q. fetch 거부가 network_error로 분류되는가?
   it('fetch 거부가 network_error로 분류되는가', async () => {
     mockSearch.mockRejectedValue(new TypeError('fetch failed'));
-    mockModel.mockResolvedValue({ page_url: '', id: '', tags: ['qwen3:latest'], default_tag: 'qwen3:latest' });
 
     const status = await runHealthCheck(TEST_ENV);
 
     expect(status.checks.search.kind).toBe('network_error');
-    expect(status.failure_kind).toBe('network_error');
+    expect(status.checks.model.kind).toBe('structure_change'); // skipped
+    expect(status.failure_kind).toBe('structure_change'); // model skipped
   });
 
-  // Q. aggregation 우선순위: structure_change > upstream_down > network_error?
-  it('aggregation 우선순위: structure_change > upstream_down > network_error', async () => {
+  // Q. aggregation 우선순위: search structure_change > model skipped?
+  it('aggregation 우선순위: structure_change > network_error', async () => {
     mockSearch.mockRejectedValue(new ParseError('selector broken'));
-    mockModel.mockRejectedValue(new UpstreamError('HTTP 503', 503));
 
     const status = await runHealthCheck(TEST_ENV);
 
     expect(status.checks.search.kind).toBe('structure_change');
-    expect(status.checks.model.kind).toBe('upstream_down');
+    expect(status.checks.model.kind).toBe('structure_change'); // skipped
     expect(status.failure_kind).toBe('structure_change');
   });
 
-  // Q. aggregation 우선순위: upstream_down > network_error?
-  it('aggregation 우선순위: upstream_down > network_error', async () => {
-    mockSearch.mockRejectedValue(new UpstreamError('HTTP 503', 503));
+  // Q. search 성공 + model 실패 시 failure_kind는 model의 kind?
+  it('search 성공 + model 실패 시 failure_kind는 model의 kind', async () => {
+    mockSearch.mockResolvedValue([{ http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' }]);
     mockModel.mockRejectedValue(new TypeError('fetch failed'));
 
     const status = await runHealthCheck(TEST_ENV);
 
-    expect(status.checks.search.kind).toBe('upstream_down');
+    expect(status.checks.search.kind).toBeNull();
     expect(status.checks.model.kind).toBe('network_error');
-    expect(status.failure_kind).toBe('upstream_down');
+    expect(status.failure_kind).toBe('network_error');
   });
 });
 

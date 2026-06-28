@@ -49,14 +49,8 @@ describe('GET /health', () => {
 
   it('returns 503 and ok:false when the search scraper fails', async () => {
     mockSearch.mockRejectedValue(
-      new Error("selector 'a.group.w-full' may no longer match"),
+      new ParseError("selector 'a.group.w-full' may no longer match"),
     );
-    mockModel.mockResolvedValue({
-      page_url: 'https://ollama.com/library/qwen3',
-      id: 'library/qwen3',
-      tags: ['qwen3:latest'],
-      default_tag: 'qwen3:latest',
-    });
 
     const res = await app.request('/health', undefined, TEST_ENV);
     expect(res.status).toBe(503);
@@ -66,8 +60,8 @@ describe('GET /health', () => {
     const searchCheck = (body.checks as Record<string, { ok: boolean; error?: string; kind: string | null }>).search;
     expect(searchCheck.ok).toBe(false);
     expect(searchCheck.error).toContain('a.group.w-full');
-    expect(searchCheck.kind).toBe('network_error');
-    expect(body.failure_kind).toBe('network_error');
+    expect(searchCheck.kind).toBe('structure_change');
+    expect(body.failure_kind).toBe('structure_change');
   });
 
   it('returns 503 and ok:false when the model scraper fails', async () => {

@@ -3,13 +3,8 @@ import { scrapeModelPage } from '../model/scraper';
 import { UpstreamError, ParseError } from '../errors';
 import type { ModelPage } from '../search/types';
 import type { CheckResult, HealthStatus } from './types';
+import type { Bindings } from '../types';
 
-interface Env {
-  OLLAMA_BASE: string;
-  OLLAMA_USER_AGENT: string;
-  OLLAMA_ACCEPT: string;
-  OLLAMA_ACCEPT_LANGUAGE: string;
-}
 
 type FailureKind = 'structure_change' | 'upstream_down' | 'network_error';
 
@@ -26,17 +21,6 @@ function worstKind(a: FailureKind | null, b: FailureKind | null): FailureKind | 
   return null;
 }
 
-/**
- * Well-known probe target with a reliably large number of tags.
- *
- * 태그 수가 안정적으로 많은 잘 알려진 프로브 대상.
- */
-export function createProbeModel(env: Env): ModelPage {
-  return {
-    http_url: `${env.OLLAMA_BASE}/library/qwen3`,
-    model_id: 'library/qwen3',
-  };
-}
 
 /**
  * Keyword used for search scraper probe.
@@ -61,24 +45,31 @@ export const PROBE_KEYWORD = 'qwen';
  *   search and model scrapers succeed.
  * @returns 검색 및 모델 스크래퍼 모두 성공할 때만 `ok`가 `true`인 {@link HealthStatus}.
  */
-export async function runHealthCheck(env: Env): Promise<HealthStatus> {
-  const probeModel = createProbeModel(env);
+export async function runHealthCheck(env: Bindings): Promise<HealthStatus> {
   const timestamp = new Date().toISOString();
   let search: CheckResult = { ok: false, kind: null };
   let model: CheckResult = { ok: false, kind: null };
 
+  // Step 1: search probe — also provides a real model for the model probe.
+  let probeModel: ModelPage | undefined;
   try {
     const pages = await scrapeSearchPage(1, PROBE_KEYWORD, env);
     search = { ok: pages.length > 0, count: pages.length, kind: null };
+    if (pages.length > 0) probeModel = pages[0];
   } catch (err) {
     search = { ok: false, error: String(err), kind: classify(err) };
   }
 
-  try {
-    const { tags } = await scrapeModelPage(probeModel, env);
-    model = { ok: tags.length > 0, count: tags.length, kind: null };
-  } catch (err) {
-    model = { ok: false, error: String(err), kind: classify(err) };
+  // Step 2: model probe — uses a real model from search results (no hardcoding).
+  if (probeModel) {
+    try {
+      const { tags } = await scrapeModelPage(probeModel, env);
+      model = { ok: tags.length > 0, count: tags.length, kind: null };
+    } catch (err) {
+      model = { ok: false, error: String(err), kind: classify(err) };
+    }
+  } else {
+    model = { ok: false, error: 'skipped: no search results to probe', kind: 'structure_change' };
   }
 
   const failure_kind = worstKind(search.kind ?? null, model.kind ?? null);

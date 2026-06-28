@@ -118,6 +118,8 @@ export interface CheckResult {
   count?: number;
   /** Stringified error message when the check failed. */
   error?: string;
+  /** Failure classification: `structure_change`, `upstream_down`, `network_error`, or `null` when successful. */
+  kind?: 'structure_change' | 'upstream_down' | 'network_error' | null;
 }
 
 /**
@@ -133,8 +135,6 @@ export interface CheckResult {
  *     model: { ok: true, count: 15 },
  *   },
  * };
- * ```
- */
 export interface HealthStatus {
   /** `true` only when every individual check passed. */
   ok: boolean;
@@ -145,4 +145,6 @@ export interface HealthStatus {
     search: CheckResult;
     model: CheckResult;
   };
+  /** Aggregated failure kind: the worst-case across all checks. `null` when all checks pass. */
+  failure_kind?: 'structure_change' | 'upstream_down' | 'network_error' | null;
 }

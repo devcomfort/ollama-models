@@ -1,3 +1,4 @@
+import type { Context } from 'hono';
 import { createRoute } from '@hono/zod-openapi';
 import { scrapeModelPage } from '../model/scraper';
 import {
@@ -38,8 +39,7 @@ export const modelRoute = createRoute({
 
 // === Handler ===
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const modelHandler = async (c: any) => {
+export const modelHandler = async (c: Context<{ Bindings: Bindings }>) => {
   const { name } = c.req.valid('query');
   if (!name.trim()) {
     return c.json({

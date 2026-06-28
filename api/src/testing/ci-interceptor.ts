@@ -10,7 +10,7 @@ export function createFetchInterceptor(
   userAgent: string,
   accept: string,
   acceptLanguage: string,
-): { clearCache: () => void } {
+): { clearCache: () => void; restore: () => void } {
   const originalFetch = globalThis.fetch;
   const cache = new Map<string, string>();
 
@@ -53,5 +53,6 @@ export function createFetchInterceptor(
 
   return {
     clearCache: () => cache.clear(),
+    restore: () => { globalThis.fetch = originalFetch; },
   };
 }

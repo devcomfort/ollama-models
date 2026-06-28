@@ -1,7 +1,10 @@
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withCache(ttl: number, handler: (c: any) => Promise<Response>): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async (c: any) => {
+import type { Context } from 'hono';
+
+export function withCache<E extends Record<string, unknown>>(
+  ttl: number,
+  handler: (c: Context<E>) => Promise<Response>,
+) {
+  return async (c: Context<E>) => {
     const cache = caches.default;
     const cacheKey = new Request(c.req.url);
 
@@ -9,18 +12,12 @@ export function withCache(ttl: number, handler: (c: any) => Promise<Response>): 
     if (cached) return cached;
 
     const res = await handler(c);
-    const body = await res.text();
-    const fresh = new Response(body, {
-      status: res.status,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': `public, max-age=${ttl}`,
-      },
-    });
     if (res.status >= 200 && res.status < 300) {
-      await cache.put(cacheKey, fresh.clone());
+      const cached = new Response(res.clone().body, res);
+      cached.headers.set('Cache-Control', `public, max-age=${ttl}`);
+      await cache.put(cacheKey, cached);
     }
-    return fresh;
+    return res;
   };
 }
 

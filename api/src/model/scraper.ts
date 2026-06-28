@@ -1,14 +1,11 @@
+import type { Bindings } from '../types';
 import { parse } from 'node-html-parser';
 import { UpstreamError, ParseError } from '../errors';
 import { fetchWithRetry } from '../lib/fetch';
 import type { ModelPage } from '../search/types';
 import type { ModelTags } from './types';
+import { ModelTagsSchema } from './schemas';
 
-interface Env {
-  OLLAMA_USER_AGENT: string;
-  OLLAMA_ACCEPT: string;
-  OLLAMA_ACCEPT_LANGUAGE: string;
-}
 
 /**
  * Fetches a model's `/tags` page and returns all available pull-ready
@@ -41,7 +38,7 @@ interface Env {
  * // a.default_tag → 'qwen3:latest'
  * ```
  */
-export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelTags> {
+export async function scrapeModelPage(page: ModelPage, env: Bindings): Promise<ModelTags> {
   // === Request ===
 
   const tagsUrl = `${page.http_url}/tags`;
@@ -97,10 +94,10 @@ export async function scrapeModelPage(page: ModelPage, env: Env): Promise<ModelT
     );
   }
 
-  return {
+  return ModelTagsSchema.parse({
     page_url: page.http_url,
     id: page.model_id,
     tags,
     default_tag: tags.find(t => t.endsWith(':latest')) ?? null,
-  };
+  });
 }

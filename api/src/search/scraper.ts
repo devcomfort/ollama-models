@@ -1,14 +1,10 @@
+import type { Bindings } from '../types';
 import { parse } from 'node-html-parser';
-import { UpstreamError, ParseError } from '../errors';
 import { fetchWithRetry } from '../lib/fetch';
+import { UpstreamError, ParseError } from '../errors';
 import type { ModelPage } from './types';
+import { ModelPageSchema } from './schemas';
 
-interface Env {
-  OLLAMA_BASE: string;
-  OLLAMA_USER_AGENT: string;
-  OLLAMA_ACCEPT: string;
-  OLLAMA_ACCEPT_LANGUAGE: string;
-}
 
 /**
  * Fetches an Ollama search results page and returns unique model page URLs.
@@ -40,7 +36,7 @@ interface Env {
  * // [{ http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' }, ...]
  * ```
  */
-export async function scrapeSearchPage(page: number, keyword: string, env: Env): Promise<ModelPage[]> {
+export async function scrapeSearchPage(page: number, keyword: string, env: Bindings): Promise<ModelPage[]> {
   const searchUrl = new URL(`${env.OLLAMA_BASE}/search`);
   searchUrl.searchParams.set('page', String(page));
   if (keyword.trim()) searchUrl.searchParams.set('q', keyword.trim());
@@ -77,5 +73,5 @@ export async function scrapeSearchPage(page: number, keyword: string, env: Env):
     );
   }
 
-  return pages;
+  return pages.map((p) => ModelPageSchema.parse(p));
 }

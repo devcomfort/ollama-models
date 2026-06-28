@@ -1,4 +1,6 @@
-import { assert } from 'es-toolkit/util';
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message);
+}
 import type { ModelTags, ModelPage, SearchResult, CheckResult, HealthStatus } from './types';
 
 // === helpers ===
@@ -91,6 +93,12 @@ export function assertCheckResult(
   if ('error' in data) {
     assert(typeof data['error'] === 'string', `${context}.error: expected string`);
   }
+  if ('kind' in data && data['kind'] !== null) {
+    assert(
+      data['kind'] === 'structure_change' || data['kind'] === 'upstream_down' || data['kind'] === 'network_error',
+      `${context}.kind: expected 'structure_change' | 'upstream_down' | 'network_error' | null`,
+    );
+  }
 }
 
 /**
@@ -106,4 +114,10 @@ export function assertHealthStatus(data: unknown): asserts data is HealthStatus 
   assert(isObject(data['checks']), 'HealthStatus.checks: expected object');
   assertCheckResult(data['checks']['search'], 'HealthStatus.checks.search');
   assertCheckResult(data['checks']['model'], 'HealthStatus.checks.model');
+  if ('failure_kind' in data && data['failure_kind'] !== null) {
+    assert(
+      data['failure_kind'] === 'structure_change' || data['failure_kind'] === 'upstream_down' || data['failure_kind'] === 'network_error',
+      `HealthStatus.failure_kind: expected 'structure_change' | 'upstream_down' | 'network_error' | null`,
+    );
+  }
 }

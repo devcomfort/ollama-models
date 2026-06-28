@@ -1,3 +1,4 @@
+import type { Context } from 'hono';
 import { createRoute } from '@hono/zod-openapi';
 import { runHealthCheck } from '../health';
 import { HealthStatusSchema } from '../schemas';
@@ -25,8 +26,7 @@ export const healthRoute = createRoute({
 
 // === Handler ===
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const healthHandler = async (c: any) => {
+export const healthHandler = async (c: Context<{ Bindings: Bindings }>) => {
   const status = await runHealthCheck(c.env);
   return c.json(status, status.ok ? 200 : 503);
 };

@@ -1,14 +1,9 @@
 import { scrapeSearchPage } from './scraper';
+import type { Bindings } from '../types';
 import type { ModelPage, PageRange, SearchResult } from './types';
 
 export type { PageRange };
 
-interface Env {
-  OLLAMA_BASE: string;
-  OLLAMA_USER_AGENT: string;
-  OLLAMA_ACCEPT: string;
-  OLLAMA_ACCEPT_LANGUAGE: string;
-}
 
 /**
  * Searches Ollama for models matching `keyword` across one or more pages.
@@ -44,7 +39,7 @@ interface Env {
 export async function search(
   keyword: string,
   range: PageRange = 1,
-  env: Env,
+  env: Bindings,
 ): Promise<SearchResult> {
   const pageNumbers =
     typeof range === 'number'

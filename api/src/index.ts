@@ -9,8 +9,7 @@ import { ErrorCodes } from './schemas';
 import type { Bindings } from './types';
 
 const app = new OpenAPIHono<{ Bindings: Bindings }>({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  defaultHook: (result, c: any) => {
+  defaultHook: (result, c) => {
     if (!result.success) {
       return c.json({
         error: {
