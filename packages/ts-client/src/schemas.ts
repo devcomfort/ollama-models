@@ -46,6 +46,9 @@ export function assertSearchResult(data: unknown): asserts data is SearchResult 
   assert(typeof data['keyword'] === 'string', 'SearchResult.keyword: expected string');
   if (data['failed_pages'] !== undefined) {
     assert(Array.isArray(data['failed_pages']), 'SearchResult.failed_pages: expected array');
+    (data['failed_pages'] as unknown[]).forEach((n, i) =>
+      assert(typeof n === 'number', `SearchResult.failed_pages[${i}]: expected number`),
+    );
   }
 }
 

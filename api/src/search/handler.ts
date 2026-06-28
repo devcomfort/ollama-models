@@ -15,20 +15,18 @@ interface Env {
  *
  * 하나 이상의 페이지에서 `keyword`와 일치하는 모델을 검색한다.
  *
- * All pages are fetched concurrently. Pages that fail even after `maxRetries`
- * attempts are reported in `failed_pages`. Results are ordered by page number
- * ascending and cross-page duplicates are removed.
+ * All pages are fetched concurrently. Each page goes through `fetchWithRetry`
+ * (2 retries internally). Pages that still fail are reported in `failed_pages`.
+ * If ALL pages fail, the original error is thrown so the route returns 502.
  *
- * 모든 페이지는 동시에 가져온다. `maxRetries` 시도 후에도 실패한 페이지는
- * `failed_pages`에 보고된다. 결과는 페이지 번호 오름차순으로 정렬되며
- * 페이지 간 중복이 제거된다.
+ * 모든 페이지는 동시에 가져온다. 각 페이지는 `fetchWithRetry`(내부 2회 재시도)를
+ * 거친다. 여전히 실패한 페이지는 `failed_pages`에 보고된다. 모든 페이지가 실패하면
+ * 원본 에러가 throw되어 라우트가 502를 반환한다.
  *
  * @param keyword - Search keyword. Pass an empty string to list all models.
  * @param keyword - 검색 키워드. 빈 문자열을 전달하면 모든 모델을 나열한다.
  * @param range - A 1-based page number, or `{ from, to }` for an inclusive range.
  * @param range - 1부터 시작하는 페이지 번호, 또는 포함 범위 `{ from, to }`.
- * @param maxRetries - Number of additional attempts per page on failure. Defaults to `0`.
- * @param maxRetries - 실패 시 페이지당 추가 시도 횟수. 기본값 `0`.
  * @returns A {@link SearchResult} with deduplicated model pages sorted by page number.
  *   `failed_pages` lists pages that could not be fetched after all retries.
  * @returns 페이지 번호순으로 정렬되고 중복이 제거된 모델 페이지를 포함한
@@ -36,17 +34,16 @@ interface Env {
  * @example
  * ```typescript
  * // Single page
- * const result = await search('qwen3', 1);
+ * const result = await search('qwen3', 1, env);
  *
  * // Range of pages — fetched concurrently, failed pages reported
- * const result = await search('qwen3', { from: 1, to: 3 }, 2);
+ * const result = await search('qwen3', { from: 1, to: 3 }, env);
  * // result.failed_pages might be [2] if page 2 failed
  * ```
  */
 export async function search(
   keyword: string,
   range: PageRange = 1,
-  maxRetries = 0,
   env: Env,
 ): Promise<SearchResult> {
   const pageNumbers =
@@ -54,18 +51,10 @@ export async function search(
       ? [range]
       : Array.from({ length: range.to - range.from + 1 }, (_, i) => range.from + i);
 
+  // Each scrapeSearchPage call goes through fetchWithRetry (2 retries internally).
+  // Promise.allSettled lets us collect partial failures without aborting the batch.
   const settled = await Promise.allSettled(
-    pageNumbers.map(async (p) => {
-      let lastErr: unknown;
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          return await scrapeSearchPage(p, keyword, env);
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-      throw lastErr;
-    }),
+    pageNumbers.map((p) => scrapeSearchPage(p, keyword, env)),
   );
 
   const seen = new Set<string>();

@@ -56,7 +56,7 @@ export const searchHandler = async (c: { req: { valid: (t: string) => unknown };
   }
 
   try {
-    const result = await search(keyword, range, 0, c.env);
+    const result = await search(keyword, range, c.env);
     return c.json(result);
   } catch (err) {
     const errStr = String(err);

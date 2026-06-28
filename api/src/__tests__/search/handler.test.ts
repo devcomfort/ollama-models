@@ -54,7 +54,7 @@ const PAGE_3 = [
 describe('search() — single page', () => {
   it('returns a SearchResult for the requested page', async () => {
     mockScrape.mockResolvedValue(PAGE_1);
-    const result = await search('qwen3', 1, 0, TEST_ENV);
+    const result = await search('qwen3', 1, TEST_ENV);
     expect(result.keyword).toBe('qwen3');
     expect(result.page_range).toBe(1);
     expect(result.pages).toEqual(PAGE_1);
@@ -62,14 +62,14 @@ describe('search() — single page', () => {
 
   it('calls scrapeSearchPage once with the correct arguments', async () => {
     mockScrape.mockResolvedValue(PAGE_1);
-    await search('mistral', 2, 0, TEST_ENV);
+    await search('mistral', 2, TEST_ENV);
     expect(mockScrape).toHaveBeenCalledOnce();
     expect(mockScrape).toHaveBeenCalledWith(2, 'mistral', TEST_ENV);
   });
 
   it('defaults range to page 1 when omitted', async () => {
     mockScrape.mockResolvedValue(PAGE_1);
-    await search('qwen3', undefined, 0, TEST_ENV);
+    await search('qwen3', undefined, TEST_ENV);
     expect(mockScrape).toHaveBeenCalledWith(1, 'qwen3', TEST_ENV);
   });
 });
@@ -90,7 +90,7 @@ describe('search() — page range', () => {
       .mockResolvedValueOnce(PAGE_2)
       .mockResolvedValueOnce(PAGE_3);
 
-    await search('qwen3', { from: 1, to: 3 }, 0, TEST_ENV);
+    await search('qwen3', { from: 1, to: 3 }, TEST_ENV);
 
     expect(mockScrape).toHaveBeenCalledTimes(3);
     expect(mockScrape).toHaveBeenCalledWith(1, 'qwen3', TEST_ENV);
@@ -104,7 +104,7 @@ describe('search() — page range', () => {
       .mockResolvedValueOnce(PAGE_2)
       .mockResolvedValueOnce(PAGE_3);
 
-    const result = await search('qwen3', { from: 1, to: 3 }, 0, TEST_ENV);
+    const result = await search('qwen3', { from: 1, to: 3 }, TEST_ENV);
 
     expect(result.pages.map((p) => p.model_id)).toEqual([
       'library/qwen3',
@@ -116,25 +116,26 @@ describe('search() — page range', () => {
 
   it('sets page_range to the requested range', async () => {
     mockScrape.mockResolvedValue(PAGE_1);
-    const result = await search('qwen3', { from: 3, to: 4 }, 0, TEST_ENV);
+    const result = await search('qwen3', { from: 3, to: 4 }, TEST_ENV);
     expect(result.page_range).toEqual({ from: 3, to: 4 });
   });
 
   it('handles a single-element range identically to a page number', async () => {
     mockScrape.mockResolvedValue(PAGE_1);
-    const byRange = await search('qwen3', { from: 2, to: 2 }, 0, TEST_ENV);
+    const byRange = await search('qwen3', { from: 2, to: 2 }, TEST_ENV);
     expect(mockScrape).toHaveBeenCalledOnce();
     expect(mockScrape).toHaveBeenCalledWith(2, 'qwen3', TEST_ENV);
     expect(byRange.page_range).toEqual({ from: 2, to: 2 });
   });
 
-  it('skips a failed page and returns partial results', async () => {
+  it('skips a failed page and returns partial results with failed_pages', async () => {
     mockScrape
       .mockResolvedValueOnce(PAGE_1)
       .mockRejectedValueOnce(new Error('HTTP 503'));
 
-    const result = await search('qwen3', { from: 1, to: 2 }, 0, TEST_ENV);
+    const result = await search('qwen3', { from: 1, to: 2 }, TEST_ENV);
     expect(result.pages).toEqual(PAGE_1);
+    expect(result.failed_pages).toEqual([2]);
   });
 
   it('returns results in ascending page-number order', async () => {
@@ -143,7 +144,7 @@ describe('search() — page range', () => {
       .mockResolvedValueOnce(PAGE_2)
       .mockResolvedValueOnce(PAGE_3);
 
-    const result = await search('qwen3', { from: 1, to: 3 }, 0, TEST_ENV);
+    const result = await search('qwen3', { from: 1, to: 3 }, TEST_ENV);
     expect(result.pages.map((p) => p.model_id)).toEqual([
       'library/qwen3',
       'library/mistral',
@@ -151,45 +152,10 @@ describe('search() — page range', () => {
       'library/gemma3',
     ]);
   });
-});
 
-// === maxRetries ===
-// search() called with a maxRetries argument: verifies retry-on-failure,
-// drop after retry exhaustion, and independent per-page retry counters.
-//
-// maxRetries 인수로 search() 호출: 실패 시 재시도, 재시도 소진 후 페이지 제외,
-// 페이지별 독립적인 재시도 카운터를 검증한다.
-
-describe('search() — maxRetries', () => {
-  it('retries a failing page and resolves on a subsequent attempt', async () => {
-    mockScrape
-      .mockRejectedValueOnce(new Error('timeout'))
-      .mockRejectedValueOnce(new Error('timeout'))
-      .mockResolvedValueOnce(PAGE_1);
-
-    const result = await search('qwen3', 1, 2, TEST_ENV);
-    expect(mockScrape).toHaveBeenCalledTimes(3);
-    expect(result.pages).toEqual(PAGE_1);
-  });
-
-  it('throws after exhausting all retries (all pages failed)', async () => {
+  it('throws when all pages fail', async () => {
     mockScrape.mockRejectedValue(new Error('HTTP 503'));
-
-    await expect(search('qwen3', 1, 2, TEST_ENV)).rejects.toThrow('HTTP 503');
-    expect(mockScrape).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
-  });
-
-  it('retries each page independently', async () => {
-    mockScrape
-      .mockRejectedValueOnce(new Error('timeout')) // page 1 attempt 1 — fail
-      .mockResolvedValueOnce(PAGE_2)               // page 2 attempt 1 — ok
-      .mockResolvedValueOnce(PAGE_1);              // page 1 attempt 2 — ok
-
-    const result = await search('qwen3', { from: 1, to: 2 }, 1, TEST_ENV);
-    expect(result.pages.map((p) => p.model_id)).toEqual([
-      'library/qwen3',
-      'library/mistral',
-      'library/llama3',
-    ]);
+    await expect(search('qwen3', { from: 1, to: 2 }, TEST_ENV)).rejects.toThrow('HTTP 503');
   });
 });
+
