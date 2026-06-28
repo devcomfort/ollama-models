@@ -14,7 +14,7 @@ package.json          # root scripts delegating to nx
 |---|---|---|---|
 | `api/` | Cloudflare Workers | TypeScript (ES2022) | pnpm |
 | `packages/ts-client/` | Node.js / Browser | TypeScript (ES2022) | pnpm |
-| `packages/py-client/` | CPython ≥ 3.8 | Python | rye / pip |
+| `packages/py-client/` | CPython ≥ 3.10 | Python | uv |
 | `docs/` | Astro (static site) | TypeScript | pnpm |
 | `workers/alerts/` | Cloudflare Workers | JavaScript (ESM) | — |
 
@@ -32,7 +32,7 @@ package.json          # root scripts delegating to nx
 |---|---|---|
 | Constants | `SCREAMING_SNAKE_CASE` | `SEARCH_TTL`, `MODEL_TTL`, `DEFAULT_BASE_URL`, `PROBE_KEYWORD`, `ErrorCodes` |
 | Functions | `camelCase` | `scrapeSearchPage`, `fetchWithRetry`, `runHealthCheck` |
-| Variables | `camelCase` | `searchUrl`, `maxRetries`, `lastErr` |
+| Variables | `camelCase` | `searchUrl`, `lastErr` |
 | Interfaces / Types | `PascalCase` | `ModelPage`, `SearchResult`, `Bindings` |
 | Classes | `PascalCase` | `OllamaModelsClient`, `UpstreamError`, `ParseError` |
 | Zod schemas | `PascalCase` + `Schema` suffix | `ModelPageSchema`, `SearchQuerySchema`, `ErrorResponseSchema` |
@@ -105,9 +105,9 @@ Error codes are centralized in `ErrorCodes` const object (`api/src/schemas.ts`).
 ### Build & Packaging (ts-client)
 
 - Built with `tsdown` → CJS (`.cjs`) + ESM (`.mjs`) + DTS (`.d.cts`).
-- Single runtime dependency: `es-toolkit` (used for `assert` utility in schema validation).
+- No runtime dependencies. Validates API responses with hand-written `assert*` functions.
 - Exports: `OllamaModelsClient` (class), `assertModelPage`, `assertSearchResult`, `assertModelTags`, `assertCheckResult`, `assertHealthStatus` (runtime validators), and all types.
-- Client-side schemas use hand-written `assert*` functions (not Zod) to validate API responses at runtime — keeps the client dependency-free except for `es-toolkit`.
+- Client-side schemas use hand-written `assert*` functions (not Zod) to validate API responses at runtime — keeps the client fully dependency-free.
 
 ### Client API Pattern (ts-client)
 
@@ -170,7 +170,7 @@ Wire JSON is deserialized via private `_parse_*` functions (not a generic schema
 ### Package Build
 
 - Build backend: `hatchling`.
-- Managed by `rye` (`[tool.rye] managed = true`).
+- Managed by `uv` (`[dependency-groups]` in pyproject.toml).
 - Wheel packages `src/ollama_models/`.
 
 ### Exports
@@ -203,7 +203,7 @@ Three sequential jobs on every push/PR to `main`:
 
 ### Deploy Pipeline (`.github/workflows/deploy.yml`)
 
-Six stages: deploy-staging → verify-staging → deploy-production → e2e → deploy-ts-client → deploy-docs.
+Six stages: deploy-staging → verify-staging → deploy-production → e2e → deploy-ts-client → deploy-docs. PyPI publish is triggered separately by `py-v*` tag push via `publish-pypi.yml`.
 
 ### Health Monitoring
 

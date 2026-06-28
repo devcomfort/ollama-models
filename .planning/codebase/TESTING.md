@@ -1,23 +1,24 @@
 # Testing
 
-> Auto-generated 2026-06-27 from source analysis of the `ollama-models` monorepo.
 
 ## Test Count Summary
 
 | Layer | Scope | Runner | Count |
 |---|---|---|---|
-| Unit | Functions / modules | Vitest (Node.js) | 72 |
+| Unit | Functions / modules | Vitest (Node.js) | 92 |
 | Integration | Full request/response chain | In-process Hono or subprocess | 39 |
-| E2E | Deployed live API | Bash (`curl` + `python3`) | 23 |
+| E2E | Browser-based BDD | Playwright Test (Chromium) | 7 |
+| E2E (legacy) | Deployed live API | Bash (`curl` + `python3`) | 23 |
 
 ## Commands
 
 ```bash
-pnpm test              # All TypeScript tests (72)
-pnpm test:api          # API only (44)
+pnpm test              # All suites: API (64) + TS Client (28) + Python (39) + Playwright E2E (7) + README lint
+pnpm test:api          # API only (64)
 pnpm test:ts           # TS client only (28)
-pnpm test:py           # Python tests (39, via rye run pytest)
-./scripts/e2e.sh       # E2E against deployed API (23)
+pnpm test:py           # Python tests (39, via uv run pytest)
+pnpm test:e2e          # Playwright E2E tests (7)
+./scripts/e2e.sh       # Legacy E2E against deployed API (23)
 ```
 
 ## Three-Layer Design
@@ -326,11 +327,12 @@ packages/ts-client/src/__tests__/
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
-[tool.rye]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-httpx>=0.21.0",
+    "pytest-cov>=6.0.0",
     "build>=1.0.0",
     "playwright>=1.58.0",
 ]

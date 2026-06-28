@@ -13,6 +13,8 @@ ollama-models/
 ├── workers/
 │   └── alerts/             Tail Worker for runtime error emails
 ├── docs/                   Astro Starlight documentation site
+├── tests/e2e/              Playwright E2E browser tests
+├── playwright.config.ts    Playwright test configuration
 ├── scripts/                CI/CD and operational scripts
 ├── .github/workflows/      GitHub Actions CI/CD pipelines
 ├── .planning/              Project planning artifacts (not deployed)
@@ -178,7 +180,7 @@ docs/
 │   ├── content.config.ts     Astro content config
 │   └── env.d.ts
 ├── functions/api/
-│   └── [[path]].ts           Pages Function: proxies /api/* to Workers API
+│   └── [[path]].js           Pages Function: proxies /api/* to Workers API
 ├── astro.config.mjs          Starlight config (bilingual: en, ko)
 ├── package.json
 └── project.json              Nx targets (build, dev)
@@ -246,9 +248,10 @@ Not deployed. Internal reference for contributors and AI agents.
 | Python client class | `packages/py-client/src/ollama_models/client.py` |
 | Python types | `packages/py-client/src/ollama_models/types.py` |
 | Alerts worker | `workers/alerts/index.js` |
-| Docs proxy | `docs/functions/api/[[path]].ts` |
+| Docs proxy | `docs/functions/api/[[path]].js` |
 | OpenAPI spec | `api/openapi.json` |
 | Wrangler config | `api/wrangler.toml` |
-| E2E tests | `scripts/e2e.sh` |
+| E2E tests | `tests/e2e/demo.spec.ts` (Playwright) + `scripts/e2e.sh` (legacy curl) |
 | CI pipeline | `.github/workflows/ci.yml` |
+| E2E pipeline | `.github/workflows/e2e.yml` |
 | Deploy pipeline | `.github/workflows/deploy.yml` |

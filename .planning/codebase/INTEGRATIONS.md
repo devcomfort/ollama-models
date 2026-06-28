@@ -48,7 +48,7 @@ The core purpose of this project: scrape `ollama.com` HTML pages to extract mode
 |---------|-------|
 | Project: `ollama-models` | Hosts the Astro/Starlight documentation site |
 | URL | `https://ollama.devcomfort.me` |
-| Deploy | `wrangler pages deploy docs/dist --project-name ollama-models` from CI |
+| Deploy | `wrangler pages deploy docs/ --project-name ollama-models` from CI |
 
 ## GitHub Platform
 
@@ -59,6 +59,7 @@ All workflows run on `ubuntu-latest` with Node 22 and Python 3.12.
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | push/PR to main | API type-check + tests → TS client tests → Python client tests |
+| `e2e.yml` | push/PR to main (docs/e2e paths) | Playwright E2E browser tests against live demo page |
 | `deploy.yml` | push to main (path-filtered) | Staging deploy → verify → production deploy → E2E → npm publish → docs deploy |
 | `publish-npm.yml` | `ts-v*` tag push | Publish TS client to npm |
 | `publish-pypi.yml` | `py-v*` tag push | Build → TestPyPI → PyPI (OIDC Trusted Publisher) |
@@ -113,7 +114,7 @@ The health-monitor and auto-heal workflows use the `gh` CLI extensively:
 
 | Aspect | Detail |
 |--------|--------|
-| Package | `ollama-models` (v0.2.0) |
+| Package | `ollama-models` (v0.3.0) |
 | Auth | `NPM_TOKEN` secret via `NODE_AUTH_TOKEN` env var |
 | Trigger | `ts-v*` git tag push or post-E2E in deploy pipeline |
 | Smoke test | `scripts/smoke-ts-client.sh` verifies built artifact before publish |
@@ -122,7 +123,7 @@ The health-monitor and auto-heal workflows use the `gh` CLI extensively:
 
 | Aspect | Detail |
 |--------|--------|
-| Package | `ollama-models` (v0.1.1) |
+| Package | `ollama-models` (v0.2.0) |
 | Auth | OIDC Trusted Publisher (no API token; `id-token: write` permission) |
 | Action | `pypa/gh-action-pypi-publish@release/v1` |
 | Flow | Build → upload artifact → TestPyPI → PyPI (two-stage publish) |

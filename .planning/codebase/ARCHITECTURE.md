@@ -30,7 +30,7 @@ Thin HTTP wrappers over the Workers API. No business logic — only
 request construction, response parsing, and runtime shape validation.
 
 - **TypeScript:** `OllamaModelsClient` class with `search()`, `getModel()`,
-  `health()`. Zero runtime dependencies (assertion via `es-toolkit`).
+  `health()`. Zero runtime dependencies. Validates responses with hand-written assert functions.
   Builds to CJS + ESM via tsdown. Published as `ollama-models` on npm.
 - **Python:** `OllamaModelsClient` class with sync + async variants
   (`search` / `search_async`, etc.). Uses `httpx`. Published as
@@ -95,7 +95,7 @@ Configured via `[[tail_consumers]]` in `api/wrangler.toml`.
 ### 4. Docs Site (docs/)
 
 Astro Starlight documentation site deployed to Cloudflare Pages.
-Includes a **Pages Function** (`functions/api/[[path]].ts`) that proxies
+Includes a **Pages Function** (`functions/api/[[path]].js`) that proxies
 `/api/*` requests to the Workers API, enabling the unified domain
 `ollama.devcomfort.me` to serve both docs and API.
 
@@ -104,6 +104,7 @@ Includes a **Pages Function** (`functions/api/[[path]].ts`) that proxies
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | push/PR to main | Type-check + test API, TS client, Python client. Ensures schema sync across all three layers. |
+| `e2e.yml` | push/PR to main (docs/e2e paths) | Playwright E2E browser tests against live demo page. |
 | `deploy.yml` | push to main (api/packages/docs/workers paths) | Staging-first deploy: staging → verify → production → E2E → publish clients + docs. |
 | `health-monitor.yml` | cron every 5 min | Probes `/health`, triggers auto-heal on 3 consecutive `structure_change` failures. |
 | `auto-heal.yml` | dispatched by health-monitor | Uses OpenCode AI to inspect ollama.com HTML and patch scraper selectors. Opens PR with `auto-heal` label. Escalates to `needs-human` issue after 3 failed attempts. |
@@ -116,7 +117,7 @@ Includes a **Pages Function** (`functions/api/[[path]].ts`) that proxies
 |-------------|------|-------------|
 | `api/src/index.ts` | Cloudflare Worker | Main API. Exports `default { fetch: app.fetch }` for Wrangler. |
 | `workers/alerts/index.js` | Cloudflare Tail Worker | Exports `default { tail() }` for email alerts. |
-| `docs/functions/api/[[path]].ts` | Cloudflare Pages Function | Proxies `/api/*` to Workers API. |
+| `docs/functions/api/[[path]].js` | Cloudflare Pages Function | Proxies `/api/*` to Workers API. |
 | `packages/ts-client/src/index.ts` | npm package | Re-exports `OllamaModelsClient` and types. |
 | `packages/py-client/src/ollama_models/__init__.py` | PyPI package | Re-exports `OllamaModelsClient` and types. |
 | `scripts/e2e.sh` | Shell script | E2E test suite against deployed API. |

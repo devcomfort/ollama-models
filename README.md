@@ -19,6 +19,10 @@
   <a href="https://github.com/devcomfort/ollama-models/actions/workflows/health-monitor.yml"><img src="https://github.com/devcomfort/ollama-models/actions/workflows/health-monitor.yml/badge.svg" alt="Health"></a>
   <a href="https://ollama.devcomfort.me/api/openapi.json"><img src="https://img.shields.io/badge/OpenAPI-3.0-85EA2D?logo=openapiinitiative" alt="OpenAPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue" alt="License"></a>
+  <br>
+  <img src="https://img.shields.io/badge/coverage_API-98%25-brightgreen" alt="API Coverage">
+  <img src="https://img.shields.io/badge/coverage_TS-92%25-brightgreen" alt="TS Client Coverage">
+  <img src="https://img.shields.io/badge/coverage_Python-99%25-brightgreen" alt="Python Coverage">
 </p>
 
 ---
@@ -159,7 +163,7 @@ Read more → [Auto-Heal Documentation](https://ollama.devcomfort.me/en/auto-hea
 
 - [Node.js](https://nodejs.org) v22+
 - [pnpm](https://pnpm.io) v10+
-- [rye](https://rye.astral.sh) (Python)
+- [uv](https://docs.astral.sh/uv/) (Python)
 
 ### Setup
 
