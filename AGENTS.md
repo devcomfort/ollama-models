@@ -19,7 +19,7 @@ Instructions for AI agents working on the ollama-models project.
 | API framework | Hono + `@hono/zod-openapi` |
 | HTML scraping | `node-html-parser` |
 | TS client build | `tsup` (ESM + CJS + DTS) |
-| Python packaging | `hatchling` + `rye` |
+| Python packaging | `hatchling` + `uv` |
 | Test runner | Vitest (TS), pytest (Python) |
 
 Hono is a lightweight, Workers-native framework. It works well for this project but has concrete tradeoffs: type generics erode through higher-order middleware (`any` suppressions in `defaultHook` and `withCache`), `createRoute()` is verbose per endpoint, and `@hono/zod-openapi` couples routing/validation/docs tightly. For structured APIs with many endpoints, Fastify or native Workers `fetch` handlers may be simpler.
@@ -53,7 +53,7 @@ Hono is a lightweight, Workers-native framework. It works well for this project 
 pnpm test              # All TypeScript tests (72)
 pnpm test:api          # API only (44)
 pnpm test:ts           # TS client only (28)
-pnpm test:py           # Python tests (39, via rye run pytest)
+pnpm test:py           # Python tests (39, via uv run pytest)
 ./scripts/e2e.sh       # E2E against deployed API (23)
 ```
 

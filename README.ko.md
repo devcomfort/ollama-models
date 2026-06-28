@@ -159,7 +159,7 @@ ollama.com이 HTML 구조를 변경하면 헬스 모니터가 감지하고 Auto-
 
 - [Node.js](https://nodejs.org) v22+
 - [pnpm](https://pnpm.io) v10+
-- [rye](https://rye.astral.sh) (Python)
+- [uv](https://docs.astral.sh/uv/) (Python)
 
 ### 설정
 

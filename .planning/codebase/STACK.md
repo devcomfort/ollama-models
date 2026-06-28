@@ -38,7 +38,7 @@
 
 | Dependency | Purpose |
 |------------|---------|
-| `es-toolkit` | Utility library (runtime dependency) |
+| (none) | Zero runtime dependencies — validates with hand-written assert functions |
 | tsdown | Library bundler (CJS + ESM dual output) |
 | Vitest 4.x | Test runner |
 | TypeScript 5.x | Type checking |
@@ -51,7 +51,7 @@
 | Hatchling | PEP 517 build backend |
 | pytest + pytest-asyncio + pytest-httpx | Testing |
 | Playwright | E2E browser testing (dev dependency) |
-| Rye | Python project management |
+| uv | Python project management |
 
 ### Documentation (`docs/`)
 
@@ -79,7 +79,7 @@
 | File | Purpose |
 |------|---------|
 | `api/wrangler.toml` | Worker name, entrypoint, env vars, staging env, tail consumer |
-| `api/.dev.vars` | Local dev secrets (Slack webhook URL) |
+| `api/.dev.vars` | Local dev secrets (empty — secrets via `wrangler secret`) |
 | `api/tsconfig.json` | ES2022 target, bundler module resolution, `@cloudflare/workers-types` |
 | `packages/ts-client/tsconfig.json` | Client library TypeScript config |
 | `packages/py-client/pyproject.toml` | Python project metadata, deps, build config |
