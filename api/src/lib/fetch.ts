@@ -20,7 +20,7 @@ export async function fetchWithRetry(
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
-      return await fetch(url, init);
+      return await fetch(url, { ...init, signal: AbortSignal.timeout(10_000) });
     } catch (err) {
       lastError = err;
       if (attempt <= maxRetries) {

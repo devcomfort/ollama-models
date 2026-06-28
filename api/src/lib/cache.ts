@@ -17,7 +17,9 @@ export function withCache(ttl: number, handler: (c: any) => Promise<Response>): 
         'Cache-Control': `public, max-age=${ttl}`,
       },
     });
-    await cache.put(cacheKey, fresh.clone());
+    if (res.status >= 200 && res.status < 300) {
+      await cache.put(cacheKey, fresh.clone());
+    }
     return fresh;
   };
 }
