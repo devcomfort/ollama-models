@@ -73,6 +73,10 @@ importers:
       astro:
         specifier: ^6.4.8
         version: 6.4.8(@types/node@25.6.0)(rollup@4.60.2)(tsx@4.21.0)(yaml@2.9.0)
+    devDependencies:
+      wrangler:
+        specifier: ^4.105.0
+        version: 4.105.0(@cloudflare/workers-types@4.20260430.1)
 
   packages/ts-client:
     devDependencies:
