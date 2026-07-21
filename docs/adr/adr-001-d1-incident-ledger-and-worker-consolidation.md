@@ -24,6 +24,54 @@
 
 GitHub Actions의 외부 health probe와 제한된 auto-heal은 유지한다. GitHub Actions schedule은 지연되거나 누락될 수 있으므로, 사용자 오류의 실시간 notifier나 단일 진실 원천으로 사용하지 않는다. NetBird DNS와 현재 공개 route는 이 ADR의 범위 밖이다.
 
+## 개념도
+
+```mermaid
+flowchart LR
+    accTitle: D1 인시던트 알림 아키텍처
+    accDescr: 사용자 요청은 Main Worker가 처리하고, 5xx 또는 runtime failure만 Tail Worker가 D1 인시던트 원장으로 정규화한다. GitHub Actions는 별도 경로에서 health를 관찰하고 auto-heal을 시작한다.
+
+    user([👤 API 사용자])
+    ollama[🌐 Ollama upstream]
+    operator([👤 운영자])
+
+    subgraph request_serving ["☁️ Request serving"]
+        main_worker[🖥️ Main Worker]
+    end
+
+    subgraph incident_path ["⚠️ Incident path"]
+        tail_worker[⚡ Tail Worker]
+        d1_ledger[(💾 D1 incident ledger)]
+    end
+
+    subgraph external_observer ["🔄 Independent observer"]
+        github_actions[⚙️ GitHub Actions]
+        auto_heal[🔧 Auto-heal workflow]
+    end
+
+    user -->|API request| main_worker
+    main_worker -->|upstream fetch| ollama
+    ollama -->|upstream response| main_worker
+    main_worker -->|API response| user
+    main_worker -->|5xx or runtime failure| tail_worker
+    tail_worker -->|atomic claim| d1_ledger
+    d1_ledger -->|notify or suppress| tail_worker
+    tail_worker -->|sanitized email| operator
+    github_actions -->|probe /health| main_worker
+    main_worker -->|health result| github_actions
+    github_actions -->|confirmed selector change| auto_heal
+
+    classDef worker fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef storage fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#3b0764
+    classDef external fill:#f3f4f6,stroke:#6b7280,stroke-width:2px,color:#1f2937
+    classDef alert fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#713f12
+
+    class main_worker,tail_worker worker
+    class d1_ledger storage
+    class user,ollama,github_actions,auto_heal external
+    class operator alert
+```
+
 ## 결정
 
 ### 1. 프로덕션 목표는 Main Worker와 Tail Worker 두 개다
