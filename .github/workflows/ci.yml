@@ -65,7 +65,7 @@ jobs:
       - name: Run API unit tests
         run: npx nx test api
       - name: Check OpenAPI spec freshness
-        run: npx nx exec api --command "pnpm exec tsx scripts/gen-openapi.ts && git diff --exit-code api/openapi.json"
+        run: pnpm gen-openapi && git diff --exit-code api/openapi.json
 
 
   # ─── TypeScript client: unit tests + integration tests ───────────────────────

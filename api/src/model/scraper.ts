@@ -6,6 +6,10 @@ import type { ModelPage } from '../search/types';
 import type { ModelTags } from './types';
 import { ModelTagsSchema } from './schemas';
 
+type ModelScraperBindings = Pick<
+  Bindings,
+  'OLLAMA_USER_AGENT' | 'OLLAMA_ACCEPT' | 'OLLAMA_ACCEPT_LANGUAGE'
+>;
 
 /**
  * Fetches a model's `/tags` page and returns all available pull-ready
@@ -18,6 +22,8 @@ import { ModelTagsSchema } from './schemas';
  *   is returned as-is in the result.
  * @param page - 검색 스크래퍼에서 얻은 {@link ModelPage}. `http_url`은 `/tags` 요청의
  *   기준 URL로 사용되며, `model_id`는 결과에 그대로 반환된다.
+ * @param env - Request header values for Ollama fetches.
+ * @param env - Ollama 요청에 사용할 header 값.
  * @returns A {@link ModelTags} with the model page URL, model ID,
  *   pull-ready tag identifiers, and the default tag (`null` when the model
  *   has no `latest` tag).
@@ -32,13 +38,18 @@ import { ModelTagsSchema } from './schemas';
  * @example
  * ```typescript
  * const page: ModelPage = { http_url: 'https://ollama.com/library/qwen3', model_id: 'library/qwen3' };
- * const a = await scrapeModelPage(page);
+ * const env = {
+ *   OLLAMA_USER_AGENT: 'ollama-models-api/0.1',
+ *   OLLAMA_ACCEPT: 'text/html',
+ *   OLLAMA_ACCEPT_LANGUAGE: 'en-US',
+ * };
+ * const a = await scrapeModelPage(page, env);
  * // a.id          → 'library/qwen3'
  * // a.tags        → ['qwen3:latest', 'qwen3:4b', ...]
  * // a.default_tag → 'qwen3:latest'
  * ```
  */
-export async function scrapeModelPage(page: ModelPage, env: Bindings): Promise<ModelTags> {
+export async function scrapeModelPage(page: ModelPage, env: ModelScraperBindings): Promise<ModelTags> {
   // === Request ===
 
   const tagsUrl = `${page.http_url}/tags`;

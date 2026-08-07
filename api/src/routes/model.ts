@@ -1,5 +1,5 @@
-import type { Context } from 'hono';
 import { createRoute } from '@hono/zod-openapi';
+import type { RouteHandler } from '@hono/zod-openapi';
 import { scrapeModelPage } from '../model/scraper';
 import {
   ModelQuerySchema,
@@ -39,7 +39,7 @@ export const modelRoute = createRoute({
 
 // === Handler ===
 
-export const modelHandler = async (c: Context<{ Bindings: Bindings }>) => {
+export const modelHandler = (async (c) => {
   const { name } = c.req.valid('query');
   if (!name.trim()) {
     return c.json({
@@ -73,7 +73,7 @@ export const modelHandler = async (c: Context<{ Bindings: Bindings }>) => {
     };
 
     const result: ModelTags = await scrapeModelPage(modelPage, c.env);
-    return c.json(result);
+    return c.json(result, 200);
   } catch (err) {
     const errStr = String(err);
     const isParseError = err instanceof ParseError;
@@ -97,4 +97,4 @@ export const modelHandler = async (c: Context<{ Bindings: Bindings }>) => {
       },
     }, 502);
   }
-};
+}) satisfies RouteHandler<typeof modelRoute, { Bindings: Bindings }>;

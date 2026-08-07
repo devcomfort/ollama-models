@@ -1,4 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
+import type { RouteHandler } from '@hono/zod-openapi';
 import { search } from '../search/handler';
 import {
   SearchQuerySchema,
@@ -37,9 +38,8 @@ export const searchRoute = createRoute({
 
 // === Handler ===
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const searchHandler = async (c: { req: { valid: (t: string) => unknown }; env: Bindings; json: (body: unknown, status?: number) => Response }) => {
-  const { q, page: pageStr } = c.req.valid('query') as { q?: string; page?: string };
+export const searchHandler = (async (c) => {
+  const { q, page: pageStr } = c.req.valid('query');
   const keyword = q ?? '';
 
   // Parse page: "1" → number, "1-3" → { from, to }
@@ -57,7 +57,7 @@ export const searchHandler = async (c: { req: { valid: (t: string) => unknown };
 
   try {
     const result = await search(keyword, range, c.env);
-    return c.json(result);
+    return c.json(result, 200);
   } catch (err) {
     const errStr = String(err);
     const isParseError = err instanceof ParseError;
@@ -81,4 +81,4 @@ export const searchHandler = async (c: { req: { valid: (t: string) => unknown };
       },
     }, 502);
   }
-};
+}) satisfies RouteHandler<typeof searchRoute, { Bindings: Bindings }>;
