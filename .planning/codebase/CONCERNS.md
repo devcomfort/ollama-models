@@ -10,7 +10,7 @@
 Both scrapers use CSS selectors against live HTML. Mitigations now in place:
 - Zod schema validation on every scraped result (ModelPageSchema, ModelTagsSchema)
 - Health probe uses search results for model probe (no hardcoded model names)
-- Health monitor + auto-heal pipeline (unchanged)
+- Health monitor observes `/health` only; automatic recovery is canceled.
 
 **Remaining gap**: Selector itself is still fragile — Zod validates shape but not content correctness.
 
@@ -72,7 +72,7 @@ Bumped to `requires-python >= 3.10`. Modern syntax (`list[]`, `X | Y`) adopted. 
 
 ## 9. Health Check Probe Model is Hardcoded (Low)
 
-`api/src/health/check.ts:34-38` hardcodes `qwen3` as the probe model and `qwen` as the search keyword. If `qwen3` is removed from ollama.com or renamed, the health check fails with a false positive `structure_change` — triggering the auto-heal pipeline unnecessarily.
+`api/src/health/check.ts:34-38` hardcodes `qwen3` as the probe model and `qwen` as the search keyword. If `qwen3` is removed from ollama.com or renamed, the health check fails with a false positive `structure_change` observation — requiring operator investigation rather than automatic repair.
 
 The comment says "well-known probe target with a reliably large number of tags," but "reliably" is an assumption about ollama.com's content stability.
 

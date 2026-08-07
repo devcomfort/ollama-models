@@ -105,8 +105,7 @@
 | `deploy.yml` | push to main (path-filtered) | Staging deploy → verify → production deploy → E2E → npm publish → docs deploy |
 | `publish-npm.yml` | `ts-v*` tag push | Publish TS client to npm |
 | `publish-pypi.yml` | `py-v*` tag push | Build → TestPyPI → PyPI (OIDC Trusted Publisher) |
-| `health-monitor.yml` | cron every 5 min | Probe `/health`; triggers auto-heal on 3 consecutive `structure_change` failures |
-| `auto-heal.yml` | dispatched by health-monitor | Uses OpenCode AI to patch CSS selectors and open PR |
+| `health-monitor.yml` | cron every 5 min | Probe `/health` and record observation only; no automatic recovery dispatch |
 
 ## Package Publishing
 

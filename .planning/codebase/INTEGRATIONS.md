@@ -17,7 +17,7 @@ The core purpose of this project: scrape `ollama.com` HTML pages to extract mode
 | Parsing | `node-html-parser` with CSS selectors (`a.group.w-full` for search, `a[href^="/"][href*=":"]` for tags) |
 | Resilience | `fetchWithRetry` (2 retries, 1s delay on network errors); health check detects selector breakage as `structure_change` |
 | Caching | Cloudflare Cache API — search results cached 60s, model tags cached 300s |
-| Auto-heal | When selectors break, a GitHub Actions pipeline uses OpenCode AI to inspect the live HTML and propose selector patches via PR |
+| Health recovery | `health-monitor.yml` records `/health` observations only; automatic recovery and agent repair are canceled. D1 audit and Queue-based operator notification are planned in ADR-002. |
 
 ## Cloudflare Platform
 
@@ -63,8 +63,7 @@ All workflows run on `ubuntu-latest` with Node 22 and Python 3.12.
 | `deploy.yml` | push to main (path-filtered) | Staging deploy → verify → production deploy → E2E → npm publish → docs deploy |
 | `publish-npm.yml` | `ts-v*` tag push | Publish TS client to npm |
 | `publish-pypi.yml` | `py-v*` tag push | Build → TestPyPI → PyPI (OIDC Trusted Publisher) |
-| `health-monitor.yml` | cron every 5 min | Probe `/health`; triggers auto-heal on 3 consecutive `structure_change` failures |
-| `auto-heal.yml` | `workflow_dispatch` from health-monitor | Uses OpenCode AI to patch CSS selectors and open PR |
+| `health-monitor.yml` | cron every 5 min | Probe `/health` and record observation only; no automatic recovery dispatch |
 
 ### GitHub Secrets
 
@@ -73,8 +72,6 @@ All workflows run on `ubuntu-latest` with Node 22 and Python 3.12.
 | `CLOUDFLARE_API_TOKEN` | deploy.yml — authenticates `wrangler deploy` for Workers + Pages |
 | `CLOUDFLARE_ACCOUNT_ID` | deploy.yml — targets the correct Cloudflare account |
 | `NPM_TOKEN` | deploy.yml, publish-npm.yml — authenticates `pnpm publish` to npm registry |
-| `GITHUB_TOKEN` | health-monitor.yml, auto-heal.yml — `gh` CLI for PR/issue triage (listing open PRs, creating issues) |
-| `OPENCODE_API_KEY` | auto-heal.yml — authenticates the OpenCode AI GitHub Action |
 
 ### GitHub Environments
 
@@ -87,26 +84,9 @@ All workflows run on `ubuntu-latest` with Node 22 and Python 3.12.
 
 ### GitHub CLI (`gh`) Usage
 
-The health-monitor and auto-heal workflows use the `gh` CLI extensively:
+No active monitoring workflow uses `gh`. `health-monitor.yml` performs a probe-only `/health` check and does not dispatch another workflow, create PRs/issues, or call an external coding agent.
 
-- **Duplicate prevention**: `gh pr list --label auto-heal --state open` checks for existing open auto-heal PRs before triggering
-- **Escalation guard**: `gh issue list --label needs-human --state open` checks for unresolved human-needed issues
-- **Attempt counting**: `gh pr list --label auto-heal --search "created:>=…"` counts recent non-merged PRs to limit retry attempts to 3 per 24h window
-- **Issue creation**: `gh issue create` with `auto-heal,needs-human` labels when attempts exhausted
-- **Workflow dispatch**: `gh workflow run "Auto-Heal Scrapers"` triggers the auto-heal pipeline from health-monitor
-
-### Auto-Heal Pipeline (OpenCode AI Integration)
-
-| Aspect | Detail |
-|--------|--------|
-| Service | `anomalyco/opencode/github@latest` GitHub Action |
-| Model | `opencode-go/deepseek-v4-pro` |
-| Auth | `OPENCODE_API_KEY` secret |
-| Purpose | When ollama.com HTML structure changes break scrapers, OpenCode inspects the live site and patches CSS selectors |
-| Files modified | `api/src/search/scraper.ts` (search card selectors), `api/src/model/scraper.ts` (tag card selectors) |
-| Output | Opens a PR labeled `auto-heal` + `attempt-N` for human review |
-| Safeguards | Never auto-merges; max 3 attempts per 24h; escalates to `needs-human` issue on exhaustion; duplicate PR prevention via `gh pr list` check |
-| Concurrency | `group: auto-heal` with `cancel-in-progress: false` — queues rather than cancels overlapping runs |
+Automatic scraper repair and its PR/issue triage path are canceled. Any future reintroduction requires a separate ADR covering scope, permissions, verification, and rollback.
 
 ## Package Registries
 
@@ -153,6 +133,5 @@ The health-monitor and auto-heal workflows use the `gh` CLI extensively:
 |-----------|--------|
 | `/health` endpoint | Probes both scrapers with stable inputs (`qwen` keyword, `library/qwen3` model); classifies failures as `structure_change`, `upstream_down`, or `network_error` |
 | Tail Workers | Real-time execution event streaming from API to alerts worker via `[[tail_consumers]]` |
-| Health Monitor (cron) | GitHub Actions runs every 5 minutes, probes `/health` with 3 attempts (5s apart), triggers auto-heal on consecutive `structure_change` |
-| Auto-heal escalation | After 3 failed attempts in 24h (counted via non-merged PRs), opens a `needs-human` GitHub issue |
+| Health Monitor (cron) | GitHub Actions runs every 5 minutes and probes `/health`; results are observation-only and do not trigger automatic recovery |
 | Error alerting | Email alerts via Cloudflare Email Service on non-ok worker outcomes (recipient from `ALERT_EMAIL_TO` secret) |

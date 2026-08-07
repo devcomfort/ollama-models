@@ -106,8 +106,7 @@ Includes a **Pages Function** (`functions/api/[[path]].js`) that proxies
 | `ci.yml` | push/PR to main | Type-check + test API, TS client, Python client. Ensures schema sync across all three layers. |
 | `e2e.yml` | push/PR to main (docs/e2e paths) | Playwright E2E browser tests against live demo page. |
 | `deploy.yml` | push to main (api/packages/docs/workers paths) | Staging-first deploy: staging → verify → production → E2E → publish clients + docs. |
-| `health-monitor.yml` | cron every 5 min | Probes `/health`, triggers auto-heal on 3 consecutive `structure_change` failures. |
-| `auto-heal.yml` | dispatched by health-monitor | Uses OpenCode AI to inspect ollama.com HTML and patch scraper selectors. Opens PR with `auto-heal` label. Escalates to `needs-human` issue after 3 failed attempts. |
+| `health-monitor.yml` | cron every 5 min | Probes `/health` and records observation only; no automatic workflow dispatch. |
 | `publish-npm.yml` | `ts-v*` tag push | Tests, builds, smoke-tests, publishes TS client to npm. |
 | `publish-pypi.yml` | `py-v*` tag push | Tests, builds, smoke-tests, publishes Python client to TestPyPI then PyPI (OIDC Trusted Publisher). |
 
@@ -145,6 +144,4 @@ Includes a **Pages Function** (`functions/api/[[path]].js`) that proxies
   Client types are manually maintained mirrors (not code-generated).
 - **Staging-first deployment.** Every deploy goes staging → verify →
   production. Production never receives untested code.
-- **Auto-heal loop.** The health monitor → auto-heal → human review
-  pipeline handles the primary failure mode (ollama.com HTML changes)
-  without manual intervention for up to 3 attempts.
+- **Probe-only health monitoring.** The health monitor checks `/health` and records observations. Automatic scraper repair and agent execution are canceled; operators handle code changes through the normal branch, test, and PR process.

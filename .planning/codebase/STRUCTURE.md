@@ -208,8 +208,7 @@ scripts/
 .github/workflows/
 ├── ci.yml                    CI: type-check + test (api → ts-client, py-client)
 ├── deploy.yml                Staging-first deploy pipeline (7 stages)
-├── health-monitor.yml        Cron: probes /health every 5 min
-├── auto-heal.yml             AI-powered scraper selector patching
+├── health-monitor.yml        Cron: probes /health every 5 min (observation only)
 ├── publish-npm.yml           Publish TS client on ts-v* tag
 └── publish-pypi.yml          Publish Python client on py-v* tag (OIDC)
 ```
@@ -217,8 +216,7 @@ scripts/
 ### Naming Conventions (workflows)
 
 - Deploy tag pattern: `ts-v*` for npm, `py-v*` for PyPI
-- Auto-heal labels: `auto-heal` (PRs), `needs-human` (escalation issues)
-- Attempt tracking: `attempt-1`, `attempt-2`, `attempt-3` labels
+- Health monitor: `/health` probe only; no automatic recovery dispatch
 
 ## .planning/ — Project Artifacts
 

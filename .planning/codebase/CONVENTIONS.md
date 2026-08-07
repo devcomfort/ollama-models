@@ -207,8 +207,7 @@ Six stages: deploy-staging → verify-staging → deploy-production → e2e → 
 
 ### Health Monitoring
 
-- `health-monitor.yml`: cron every 5 minutes, probes `/health`, triggers auto-heal on 3 consecutive `structure_change` failures.
-- `auto-heal.yml`: uses OpenCode to patch CSS selectors in scrapers, opens PR with `auto-heal` label. Escalates to `needs-human` issue after 3 failed attempts in 24h.
+- `health-monitor.yml`: cron every 5 minutes, probes `/health`, and records observations only. Automatic recovery dispatch is canceled.
 
 ### README Lint
 
