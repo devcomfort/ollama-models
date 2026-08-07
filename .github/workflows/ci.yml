@@ -151,7 +151,7 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile
-          pip install packages/py-client/ "pytest-cov>=6.0.0" "pytest-asyncio>=0.23.0" "pytest-httpx>=0.21.0"
+          pip install -e packages/py-client/ "pytest-cov>=6.0.0" "pytest-asyncio>=0.23.0" "pytest-httpx>=0.21.0"
 
       - name: Run API coverage
         id: api-cov
@@ -172,7 +172,7 @@ jobs:
         run: |
           cd packages/py-client && pytest --cov=src/ollama_models --cov-report=term-missing 2>&1 | tee ../../py-cov.txt
           COV=$(grep "TOTAL" ../../py-cov.txt | awk '{print $NF}')
-          echo "pct=${COV}%" >> $GITHUB_OUTPUT
+          echo "pct=$COV" >> $GITHUB_OUTPUT
 
       - name: Update README badges
         run: |
