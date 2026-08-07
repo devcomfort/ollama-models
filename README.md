@@ -115,9 +115,9 @@ curl "https://ollama.devcomfort.me/api/health"
 
 - **Multi-language SDKs** — TypeScript and Python clients with sync + async support
 - **Response caching** — 60s for search, 300s for model tags (Cloudflare Cache API)
-- **Auto-heal pipeline** — Detects ollama.com HTML changes and opens fix PRs via AI
+- **Incident audit plan** — D1-backed normalized runtime auditing and Queue-based operator email are planned in ADR-002
 - **Staging-first deploy** — Every change is verified on staging before production
-- **Email alerts** — Runtime errors sent via Cloudflare Email Service (Tail Worker)
+- **Health observation** — A scheduled probe checks `/health` without executing automatic recovery
 - **Interactive demo** — [Try Now](https://ollama.devcomfort.me/try/) page with live API calls
 - **OpenAPI spec** — Auto-generated, available at `/api/openapi.json`
 - **Bilingual docs** — English + Korean documentation
@@ -138,24 +138,11 @@ ollama.devcomfort.me
 GitHub Actions (staging → production pipeline)
 ├── CI: test (TypeScript + Python)
 ├── Deploy: staging → verify → production
-├── Health Monitor: /health probe every 5 min
-└── Auto-Heal: AI-powered selector fix PRs
+├── Health Monitor: /health observation every 5 min
+└── Incident Audit (planned): D1 record → operator notification
 ```
-
 ---
 
-## Auto-Heal
-
-When ollama.com changes its HTML structure, the health monitor detects it and the auto-heal pipeline creates a fix PR — no human intervention except the final merge.
-
-| Attempt | Action |
-|---------|--------|
-| 1–3 | OpenCode creates fix PR (`auto-heal` label) |
-| ≥4 | Stops auto-healing, creates `needs-human` issue |
-
-Read more → [Auto-Heal Documentation](https://ollama.devcomfort.me/en/auto-heal/)
-
----
 
 ## Development
 

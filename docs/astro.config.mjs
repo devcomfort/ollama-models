@@ -41,7 +41,6 @@ export default defineConfig({
           items: [
             { label: 'Architecture', translations: { ko: '아키텍처' }, link: '/architecture/' },
             { label: 'Deployment', translations: { ko: '배포' }, link: '/deployment/' },
-            { label: 'Auto-Heal', translations: { ko: 'Auto-Heal' }, link: '/auto-heal/' },
           ],
         },
       ],

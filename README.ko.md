@@ -111,9 +111,9 @@ curl "https://ollama.devcomfort.me/api/health"
 
 - **다중 언어 SDK** — TypeScript와 Python 클라이언트 (동기 + 비동기 지원)
 - **응답 캐싱** — 검색 60초, 모델 태그 300초 (Cloudflare Cache API)
-- **Auto-Heal 파이프라인** — ollama.com HTML 변경 감지 시 AI가 수정 PR 자동 생성
+- **인시던트 감사 계획** — D1 기반 런타임 감사와 Queue를 통한 운영자 이메일 전달을 ADR-002에서 계획
 - **Staging-first 배포** — 모든 변경사항이 스테이징 검증 후 프로덕션에 배포
-- **이메일 알림** — 런타임 에러를 Cloudflare Email Service로 전송 (Tail Worker)
+- **상태 관찰** — 예약된 probe가 자동 복구를 실행하지 않고 `/health` 상태만 확인
 - **인터랙티브 데모** — [체험하기](https://ollama.devcomfort.me/try/) 페이지에서 라이브 API 호출
 - **OpenAPI 스키마** — 자동 생성, `/api/openapi.json`에서 확인 가능
 - **이중 언어 문서** — 영어 + 한국어 문서 완전 지원
@@ -134,24 +134,12 @@ ollama.devcomfort.me
 GitHub Actions (staging → production 파이프라인)
 ├── CI: 테스트 (TypeScript + Python)
 ├── 배포: staging → 검증 → production
-├── 헬스 모니터: 5분마다 /health 프로브
-└── Auto-Heal: AI 기반 셀렉터 수정 PR
+├── 헬스 모니터: 5분마다 /health 상태 관찰
+└── 인시던트 감사(계획): D1 기록 → 운영자 알림
 ```
 
 ---
 
-## Auto-Heal
-
-ollama.com이 HTML 구조를 변경하면 헬스 모니터가 감지하고 Auto-Heal 파이프라인이 수정 PR을 생성합니다 — 최종 머지를 제외하면 사람의 개입이 필요 없습니다.
-
-| 시도 | 동작 |
-|------|------|
-| 1~3회 | OpenCode가 수정 PR 생성 (`auto-heal` 라벨) |
-| ≥4회 | 자동 치유 중단, `needs-human` 이슈 생성 |
-
-자세히 보기 → [Auto-Heal 문서](https://ollama.devcomfort.me/ko/auto-heal/)
-
----
 
 ## 개발
 
