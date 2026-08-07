@@ -1,244 +1,211 @@
-# ADR-002: Event-driven 운영·개선 계층과 제한된 자동 복구
+# ADR-002: 이벤트 기반 인시던트 감사와 알림 계층
 
 **상태:** Proposed
-**날짜:** 2026-07-20  
-**결정자:** 프로젝트 유지관리자  
-**범위:** 사용자 오류의 발견·감사·알림·분석·수정·검증·배포 관찰  
-**기반:** [ADR-001](adr-001-d1-incident-ledger-and-worker-consolidation.md)의 D1 인시던트 원장과 Main/Tail Worker 경계  
-**대체:** ADR-001 §4의 Tail Worker 직접 email 전송과 “숨겨진 cron” 금지를 delivery recovery에 한해 대체하고, §6의 R2 미사용 결정을 sanitized artifact에 한해 대체한다. 이 ADR은 time-triggered reminder notification을 허용하지 않는다. ADR-001의 Main Worker와 Tail Worker 사이 화살표는 직접 호출이 아니라 Cloudflare invocation trace의 자동 전달로 해석한다.
+**날짜:** 2026-08-01
+**결정자:** 프로젝트 유지관리자
+**범위:** 사용자 오류 발견, D1 감사 원장, 알림 전달, Queue 재시도와 DLQ
+**기반:** [ADR-001](adr-001-d1-incident-ledger-and-worker-consolidation.md)의 Main/Tail Worker 경계와 D1 원장
+
+## 결정 요약
+
+이번 단계에서는 자동 코드 수정이나 에이전트 실행을 구현하지 않는다. 익숙하고 검증 가능한 운영 기능만 다음 순서로 추가한다.
+
+1. Main Worker의 실행 결과와 Tail Worker의 오류 신호를 정규화한다.
+2. D1에 현재 상태, append-only 감사 event, transactional outbox를 함께 기록한다.
+3. Notification Queue와 consumer로 운영자 lifecycle email을 전달한다.
+4. 재시도 소진은 DLQ Handler가 D1에 terminal audit으로 기록한다.
+5. GitHub health monitor는 `/health` 관찰 전용으로 유지하며 자동 복구를 실행하지 않는다.
 
 ## 맥락
 
-ADR-001은 D1을 인시던트의 정본으로 선택하고, 사용자 대면 Main Worker와 별도 Tail Worker를 유지했다. 그러나 단순한 최초 오류 email만으로는 사용자가 문제를 발견한 뒤 어떤 분석·수정·테스트·배포가 진행됐는지 알 수 없다.
+ADR-001은 사용자 대면 Main Worker와 실행 trace를 받는 Tail Worker를 분리하고 D1을 인시던트의 정본으로 선택했다. 현재 Tail Worker는 오류가 발생하면 email을 직접 전송한다. 이 방식은 재시도, 중복 제거, 전달 결과, 이후 lifecycle을 일관되게 기록하기 어렵다.
 
-현재 `health-monitor.yml`은 5분 간격으로 `/health`를 외부에서 확인하고, 연속된 `structure_change`만 `auto-heal.yml`로 전달한다. `auto-heal.yml`은 GitHub에서 OpenCode를 실행해 scraper selector patch와 PR을 만들 수 있지만, 실제 사용자 요청의 handled `5xx`는 이 경로에 들어오지 않는다. 또한 GitHub PR과 Issue는 인시던트 audit 원장이 아니며, agent가 D1을 직접 조회하게 하면 credential과 개인정보 경계가 무너진다.
+기존 health monitor는 `/health`를 주기적으로 호출한 뒤 자동 복구 workflow를 실행할 수 있었다. 이 경로는 취소한다. 사용자의 요청에서 발생한 `5xx`와 runtime 오류는 Tail Worker에서 발견하고, 운영자는 D1 audit과 email을 통해 확인한다.
 
-필요한 구조는 실행 가능한 component를 두 계층으로 나누는 것이다.
-
-1. **사용자 대면 계층**은 docs asset과 API request를 처리하고, 운영 작업을 기다리지 않는다.
-2. **운영·개선 계층**은 Cloudflare가 전달한 execution trace를 감사하고, 문제 ID를 만들며, notification·analysis·candidate repair·test·deployment observation을 비동기로 수행한다.
-
-이 결정에서 Cloudflare는 data plane과 control plane을 소유한다. Codex와 GitHub는 Cloudflare Workflow가 최소 권한으로 호출하는 outbound repair adapter다. 이 adapter는 D1 credential이나 raw request data를 받지 않는다. API caller의 identity 또는 email address는 현재 API contract에 없으므로, 이 ADR의 "사용자 알림"은 구성된 운영자 recipient에게 보내는 lifecycle email을 뜻한다. 개별 API caller notification은 인증·동의·연락처 contract를 별도 결정하기 전에는 구현하지 않는다.
+이번 결정은 API caller에게 email을 보내는 기능을 추가하지 않는다. 현재 API contract에는 caller identity나 연락처가 없으므로, 알림 수신자는 구성된 운영자 recipient로 한정한다.
 
 ## 개념도
 
 ```mermaid
 flowchart TB
-    accTitle: Serving and remediation planes
-    accDescr: Main Worker는 사용자 요청을 즉시 처리한다. Cloudflare invocation trace는 운영 계층에 자동 전달되고, D1 outbox와 Queue를 통해 알림, 분석, 수정, 테스트, 배포 관찰이 독립적으로 진행된다.
+    accTitle: 인시던트 감사와 알림 흐름
+    accDescr: Main Worker의 실행 trace는 Tail Worker를 거쳐 D1 상태·감사·outbox에 기록되고 Notification Queue를 통해 운영자 email로 전달된다. GitHub health monitor는 health probe만 수행한다.
 
-    user([👤 API 사용자])
-    ollama[🌐 Ollama upstream]
-    operator([👤 운영자])
-    codex_github[🔌 Codex and GitHub adapter]
+    user([API 사용자])
+    upstream[Ollama upstream]
+    operator([운영자])
+    monitor[GitHub health monitor]
 
-    subgraph serving_plane ["🌐 사용자 대면 계층"]
-        main_worker[🖥️ Main Worker]
+    subgraph serving[사용자 대면 계층]
+        main[Main Worker]
     end
 
-    subgraph operations_plane ["⚙️ 운영·개선 계층"]
-        tail_worker[⚡ Tail Worker]
-        d1_ledger[(💾 D1 problem ledger)]
-        outbox_dispatcher[⏰ Outbox dispatcher]
-        notification_queue[📥 Notification Queue]
-        notification_consumer[📤 Notification consumer]
-        repair_queue[📥 Repair Queue]
-        repair_workflow[🔄 Repair Workflow]
-        agent_gateway[🔒 Agent tool gateway]
-        verification_queue[📥 Verification Queue]
-        verification_runner[🧪 Verification runner]
-        r2_artifacts[(💾 R2 sanitized artifacts)]
+    subgraph operations[운영 계층]
+        tail[Tail Worker]
+        d1[(D1: state + audit + outbox)]
+        queue[Notification Queue]
+        consumer[Notification consumer]
+        dlq[Notification DLQ]
+        dlqHandler[DLQ Handler]
     end
 
-    user -->|API request| main_worker
-    main_worker -->|upstream fetch| ollama
-    ollama -->|upstream response| main_worker
-    main_worker -->|API response| user
-
-    main_worker -.->|Cloudflare invocation trace| tail_worker
-    tail_worker -->|claim + event + outbox transaction| d1_ledger
-    tail_worker -->|publish event| notification_queue
-    tail_worker -->|publish event| repair_queue
-    outbox_dispatcher -->|scan unpublished outbox| d1_ledger
-    outbox_dispatcher -->|republish event| notification_queue
-    outbox_dispatcher -->|republish event| repair_queue
-
-    notification_queue --> notification_consumer
-    notification_consumer -->|lifecycle email| operator
-    repair_queue --> repair_workflow
-    repair_workflow -->|record stage + outbox| d1_ledger
-    repair_workflow -->|publish stage| notification_queue
-    repair_workflow -->|scoped tool calls| agent_gateway
-    d1_ledger -->|sanitized evidence only| agent_gateway
-    r2_artifacts -->|approved artifacts only| agent_gateway
-    repair_workflow -->|candidate and problem ID| codex_github
-    codex_github -->|adapter result| repair_workflow
-    repair_workflow --> verification_queue
-    verification_queue --> verification_runner
-    verification_runner -->|result + outbox transaction| d1_ledger
-    verification_runner -->|publish result| notification_queue
-
-    classDef serving fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
-    classDef operations fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#3b0764
-    classDef storage fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
-    classDef external fill:#f3f4f6,stroke:#6b7280,stroke-width:2px,color:#1f2937
-
-    class main_worker serving
-    class tail_worker,outbox_dispatcher,notification_queue,notification_consumer,repair_queue,repair_workflow,agent_gateway,verification_queue,verification_runner operations
-    class d1_ledger,r2_artifacts storage
-    class user,ollama,operator,codex_github external
+    user -->|API request| main
+    main -->|upstream fetch| upstream
+    upstream -->|response| main
+    main -->|API response| user
+    main -.->|execution trace| tail
+    tail -->|normalized error| d1
+    d1 -->|publish / recover| queue
+    queue --> consumer
+    consumer -->|lifecycle email| operator
+    queue -.->|exhausted retries| dlq
+    dlq --> dlqHandler
+    dlqHandler -->|terminal audit| d1
+    monitor -.->|observe-only /health probe| main
+    monitor -.x|canceled| autoheal[automatic recovery]
 ```
 
 ## 결정
 
-### 1. 하나의 사용자 대면 계층과 하나의 운영·개선 계층을 유지한다
+### 1. 운영 계층은 감사와 알림만 소유한다
 
-Main Worker는 docs asset과 `/api/*`를 처리한다. Main Worker는 email, D1 write, AI analysis, code repair, test 실행을 동기적으로 호출하지 않는다. 따라서 사용자 latency와 availability는 remediation workload의 queue backlog, model failure, test timeout에 영향을 받지 않는다.
+Main Worker는 API 요청과 응답을 처리한다. Main Worker는 email, D1 write, Queue publish를 동기적으로 호출하지 않는다. 따라서 운영 backlog나 email provider 장애가 사용자 요청의 latency와 응답을 바꾸지 않는다.
 
-기존 alerts Worker는 **Operations Worker**로 확장한다. 이 Worker는 Tail handler, Queue consumer, D1 outbox dispatcher, Workflow starter를 소유한다. Queue와 Workflow는 독립된 실행 component지만 별도의 public HTTP Worker service가 아니다. 완료된 production cutover의 public serving service 수는 ADR-001과 같이 Main Worker와 Operations Worker 두 개다. staging target은 의도적으로 별도 유지한다.
+기존 alerts Worker를 단계적으로 Operations Worker로 확장할 때, 이 Worker가 소유하는 범위는 다음으로 제한한다.
 
-Main Worker가 Tail Worker를 직접 호출하지 않는다. Cloudflare Tail consumer가 invocation trace를 자동 전달하고, Tail handler가 HTTP `5xx` 또는 non-`ok` runtime outcome을 후보로 분류한다. `/health`의 지속 장애와 selector repair trigger는 GitHub Actions의 외부 probe가 계속 판단한다.
+- Tail execution trace 정규화
+- D1 state, audit event, outbox 저장소
+- Notification Queue producer와 consumer
+- 명시적인 outbox recovery scheduled handler
+- Notification DLQ Handler
 
-### 2. D1은 problem state, append-only audit, 그리고 transactional outbox를 보관한다
+이번 단계에서는 public operations ingress, 외부 callback, repair workflow, verification runner, agent gateway를 만들지 않는다. 외부 health probe도 별도 ingress로 전환하지 않고 `/health`를 호출해 관찰만 한다.
 
-D1은 다음 논리 record를 보관한다.
+### 2. 오류 신호를 정규화하고 최소 정보만 저장한다
 
-| Record | 책임 | 주요 invariant |
+다음 신호를 감사 후보로 삼는다.
+
+- HTTP status가 `500` 이상인 응답
+- runtime execution outcome이 `ok`가 아닌 경우
+- `/health` probe의 반복적인 `structure_change` 관찰
+
+D1에는 script/worker 이름, 정규화된 route, status, failure class, public error code, 시각, fingerprint만 저장한다. raw query, 전체 URL, header, upstream HTML, request body, stack trace, secret은 저장하지 않는다.
+
+동일 fingerprint가 동시에 들어오면 하나의 active incident만 만들고 `occurrence_count`와 `last_seen_at`을 갱신한다. 새로운 lifecycle event만 append한다. 자동으로 원인을 추측하거나 코드를 수정하지 않는다.
+
+### 3. 상태, 감사 event, outbox는 같은 D1 transaction으로 기록한다
+
+기존 `incidents` 상태 테이블을 유지하고 다음 논리 record를 추가한다.
+
+| Record | 책임 | 핵심 invariant |
 |---|---|---|
-| `problems` | fingerprint별 현재 상태와 `problem_id` | 하나의 active fingerprint에는 하나의 open problem만 존재한다. |
-| `problem_events` | 발견·분석·수정·test·배포·복구·중단 사유 | append-only이며 `event_id`가 안정적이다. |
-| `repair_runs` | agent가 수행한 candidate repair attempt | 같은 problem의 active repair run은 하나다. |
-| `verification_runs` | Miniflare, staging, deploy observation 결과 | result와 reason은 run마다 immutable하다. |
-| `outbox_events` | Queue로 전달해야 할 business event | state transition과 같은 D1 transaction에 기록한다. |
-| `outbox_dispatch_lease` | outbox 재발행의 singleton ownership | 만료하지 않은 lease는 하나의 holder만 가진다. |
-| `notification_deliveries` | recipient별 event delivery attempt | `event_id` 기반 idempotency를 강제한다. |
-D1은 Queue producer가 아니다. event writer는 state transition, audit event, destination별 outbox row를 **같은 D1 transaction**으로 commit한 뒤 Queue publish를 즉시 시도한다. Queue send는 그 transaction에 포함되지 않는다.
+| `incidents` | fingerprint별 현재 상태 | active fingerprint당 open incident는 하나다. |
+| `incident_events` | 발견, 반복, 전달 실패, DLQ 등 append-only 기록 | `event_id`는 안정적이며 기록 후 수정하지 않는다. |
+| `outbox_events` | Notification Queue로 보낼 business event | 상태 변경과 같은 D1 transaction으로 commit한다. |
+| `consumer_deliveries` | Queue consumer claim과 완료 상태 | `(consumer_name, event_id)`는 unique다. |
+| `notification_deliveries` | recipient별 email 전달 시도 | 같은 event와 recipient는 멱등 처리한다. |
 
-#### Outbox recovery schedule
+D1 transaction은 Queue publish를 포함하지 않는다. transaction이 성공한 뒤 outbox row를 claim하여 Queue에 publish하고, 실패한 publish는 recovery가 다시 시도한다. D1을 Queue producer처럼 취급하지 않는다.
 
-Operations Worker는 Wrangler cron `* * * * *`로 실행하는 명시적 `outbox-recovery` scheduled handler를 가진다. 이 handler는 reminder notification을 만들거나 시간만으로 problem 상태를 바꾸지 않는다. `published_at IS NULL`인 이미 commit된 outbox row만 재발행한다. producer가 즉시 publish에 성공하면 동일 row의 `published_at`을 기록해 중복을 줄인다.
+### 4. Notification Queue와 outbox recovery를 사용한다
 
-handler는 D1의 `outbox_dispatch_lease`를 조건부로 claim한 holder만 실행한다. lease는 45초 후 만료되고, 한 번에 최대 100건만 처리한다. Queue send 뒤 `published_at` 기록 전에 process가 종료되면 row는 재발행될 수 있다. notification과 repair consumer는 `event_id`를 `notification_deliveries` 또는 자기 delivery record에서 claim하여 at-least-once Queue delivery를 멱등 처리한다.
+Notification Queue는 발견, 반복, email delivery failure, retry budget 소진, DLQ terminal 같은 lifecycle event를 전달한다. payload는 `event_id`, `incident_id`, event type, schema version, 발생 시각처럼 최소한의 식별 정보만 포함하고, 상세 정보는 D1에서 typed query로 읽는다.
 
-### 3. notification, repair, verification을 느슨하게 연결한다
+Operations Worker는 `* * * * *` scheduled handler로 `published_at IS NULL` 또는 만료된 claim의 outbox row를 재발행한다. 이 handler는 reminder를 생성하지 않으며, 시간만으로 incident 상태를 바꾸지 않는다.
 
-각 component는 Queue event만 계약으로 공유한다. payload는 `event_id`, `problem_id`, event type, schema version, 발생 시각만 포함한다. consumer는 상세 context가 필요할 때 Agent Tool Gateway 또는 내부 repository에서 정제된 record를 읽는다.
+전달은 at-least-once다. 오래된 claim이 Queue에 중복 publish할 수 있으므로 consumer와 email delivery record는 멱등이어야 한다. 물리적인 email provider 경계에서는 드문 중복 email을 완전히 제거하지 못할 수 있다.
 
-| Queue | Producer | Consumer | 책임 |
-|---|---|---|---|
-| `NOTIFICATION_EVENTS` | Tail, Repair Workflow, Verification Runner, outbox dispatcher | Notification consumer | lifecycle email 전송과 delivery retry |
-| `REPAIR_EVENTS` | Tail, outbox dispatcher | Repair Workflow starter | repairable problem의 triage와 repair run 시작 |
-| `VERIFICATION_JOBS` | Repair Workflow | Verification runner | candidate patch 재현, Miniflare, staging, deployment observation |
+### 5. 알림은 운영자 lifecycle email로 한정한다
 
-각 Queue는 dead-letter queue를 갖는다. DLQ event는 새 상태를 만들지 않고 원래 `event_id`의 delivery failure를 audit event로 기록한다. email 또는 test consumer가 실패해도 Main Worker request는 영향을 받지 않는다.
+Notification consumer는 구성된 운영자 recipient에게 다음 상태를 요약해 보낸다.
 
-email은 다음 business-level event마다 전송한다: 문제 발견, triage 결과, 분석 시작, 각 repair attempt, candidate 생성, 각 verification 결과, deployment 결과, 복구, retry budget 소진 또는 human escalation. 모든 internal log line을 별도 mail로 보내지는 않는다. 각 workflow step의 input, output, reason, failure detail은 D1 event 및 정제 artifact에 보관하고, email은 해당 step의 완결된 상태를 빠짐없이 전달한다.
+- 새로운 incident 발견
+- 동일 fingerprint 반복
+- notification retry 소진
+- incident resolved 또는 human follow-up 필요
 
-### 4. agent는 scoped tool만 사용하고, repair authority는 분리한다
+`dlq_terminal`은 운영자 email event가 아니다. DLQ Handler가 D1 audit-only event로 기록하며, delivery 상태는 D1에서 확인한다.
 
-Repair Workflow는 `problem_id`와 `repair_run_id`를 가진 capability를 만들어 Codex/GitHub adapter에 전달한다. adapter가 호출할 수 있는 tool은 allowlist로 제한한다.
+세부 evidence와 내부 오류는 D1 audit에 보관하고 email에는 포함하지 않는다. API caller에게 별도 알림을 보내지 않는다.
 
-- `get_problem_summary(problem_id)`
-- `get_attempt_history(problem_id)`
-- `get_sanitized_evidence(problem_id, artifact_id)`
-- `record_hypothesis(repair_run_id, summary, reason)`
-- `request_verification(repair_run_id, candidate_id)`
-- `record_adapter_result(repair_run_id, result, reason)`
+### 6. Notification DLQ는 재삽입하지 않는 terminal audit만 기록한다
 
-Agent Tool Gateway는 capability의 problem/run scope, expiry, tool name, input schema를 검증한다. gateway는 prepared query만 실행하며 arbitrary SQL, D1 credentials, secret, production deployment credential을 반환하지 않는다. agent가 작성한 prose, patch, test output은 untrusted input으로 취급한다.
+DLQ Handler는 원래 `event_id`를 기준으로 `(consumer_name, event_id)`를 원자적으로 claim한다. 한 번만 다음을 기록한다.
 
-R2는 sanitized fixture, captured evidence manifest, candidate patch artifact, test report만 보관한다. R2는 problem state나 dedupe store가 아니다. raw user request data와 credentials는 archive하지 않는다. artifact는 `problem_id`와 `repair_run_id` scope로 access하며 retention cleanup을 갖는다.
+1. `incident_events`에 `event_type = 'dlq_terminal'`인 terminal delivery failure event를 append한다.
+2. `notification_deliveries`를 `failed` 상태로 갱신한다.
+3. 해당 terminal event에는 `requeueable = false`를 기록하고 outbox row를 만들지 않는다.
 
-GitHub은 source repository, PR, Actions runner를 제공하는 outbound adapter다. Cloudflare가 GitHub Action을 dispatch할 때 opaque `problem_id`와 one-time capability만 전달한다. GitHub runner는 Cloudflare Agent Tool Gateway를 통해 필요한 정제 evidence만 읽고, 완료·실패·중단 event를 capability로 Operations Worker에 callback한다. GitHub Issue는 human escalation mirror로만 사용하며 D1 problem record를 대체하지 않는다.
+`dlq_terminal`은 Notification Queue에 publish하지 않으며, Notification consumer와 DLQ Handler가 다시 처리하지 않는다. 따라서 terminal event 자체가 새 retry나 email을 만들 수 없다. 운영자 email이 아니라 D1 audit가 최종 전달 경계이며, handler의 책임은 audit이지 자동 복구가 아니다.
 
-### 5. 자동 복구는 evidence와 policy를 통과한 범위에서만 진행한다
+### 7. 자동 복구와 에이전트 실행은 취소하고 보류한다
 
-repair classifier는 다음 세 결과 중 하나를 반환한다.
+다음 항목은 이번 범위에서 구현하지 않는다.
 
-| Class | 자동화 | 예시 |
-|---|---|---|
-| `repairable` | candidate patch, verification, PR 생성까지 자동 | 재현 가능한 selector/parsed-schema regression |
-| `investigate_only` | analysis·retry·notification만 자동 | upstream outage, transient network failure, rate limit |
-| `needs_human` | audit·notification·escalation만 자동 | secret, dependency, workflow, deployment config, D1 migration, allowlist 밖 수정 |
+- `auto-heal.yml` 실행 및 health monitor의 자동 복구 workflow 호출
+- HTML selector 자동 patch와 자동 PR 생성
+- agent gateway 또는 외부 coding agent 호출
+- repair/verification Queue 또는 Workflow
+- callback ingress, capability, nonce, OIDC 교환
+- 자동 merge와 production deploy
 
-`repairable` class라도 agent patch는 사전 승인된 scraper source, targeted test, fixture directory만 바꿀 수 있다. candidate는 기존 실제 Hono app을 실행하는 Miniflare test, immutable captured fixture regression, staging smoke test를 통과해야 한다. 허용되지 않은 파일 변경, evidence 부족, test failure, retry budget 소진은 `needs_human` event를 만든다.
+코드 수정이 필요하면 운영자가 D1 event를 확인하고 일반 branch, test, PR 절차로 처리한다. 자동 복구를 다시 검토할 때는 별도의 ADR과 보안·검증 설계를 먼저 승인한다.
 
-자동 PR 생성은 허용한다. 자동 merge와 production deploy는 required checks, protected branch policy, staging verification, last-known-good rollback path가 실제로 구성·검증된 뒤에만 별도 policy decision으로 활성화한다. 이 전에는 agent가 production mutation을 할 수 없다.
+### 8. health monitor는 관찰 전용이다
 
-### 6. GitHub Actions와 Cloudflare deployment는 lifecycle event를 반환한다
+`health-monitor.yml`은 `/health`를 호출하고 결과를 로그로 남긴다. staging 수동 실행은 관찰과 smoke test 용도로만 사용할 수 있다. 어떠한 결과도 `auto-heal.yml`, PR 생성, 코드 수정 workflow를 자동 실행하지 않는다.
 
-GitHub Actions는 source checkout, Miniflare test, staging deploy, PR lifecycle, production deploy를 계속 수행할 수 있다. Repair Workflow가 dispatch한 run에는 `problem_id`를 전달하고, workflow는 시작·candidate·test·staging·deploy·rollback 결과를 Operations Worker에 callback한다. Operations Worker는 callback을 D1 audit/outbox transaction으로 기록해 Notification Queue로 전달한다.
+사용자 요청의 `5xx`와 runtime 오류는 GitHub 일정 작업이 아니라 Main Worker의 Tail execution trace를 통해 수집한다. health monitor의 반복 관찰은 별도 incident event로 기록할 수 있지만, 자동 repair trigger는 아니다.
 
-배포 workflow가 repair와 무관하게 실행될 때도 deployment result를 lifecycle event로 보낼 수 있다. 이 heuristic은 최근 open problem과 fingerprint, affected route, candidate commit을 비교해 해당 problem을 `resolved`, `still_failing`, 또는 `needs_human`으로 전환한다. deploy success만으로 문제를 resolve하지 않으며, post-deploy smoke result가 필요하다.
+## 유지하는 범위
 
-## 대안
+- Main Worker의 API route와 기존 TS/Python client contract
+- scraper와 public `/health` route
+- Main Worker와 Tail Worker의 Cloudflare execution trace 경계
+- staging Worker와 external `/health` probe
+- 구성된 운영자 recipient로의 runtime email
+- D1을 정본으로 사용하는 incident 상태와 감사 기록
 
-### Tail Worker가 직접 email을 전송
+다음은 이후 별도 결정으로 남긴다.
 
-거부한다. email retry, repair, test가 같은 failure domain에 묶이고, 발견 이후의 lifecycle을 전달할 수 없다. Queue와 outbox는 delivery workload를 request/trace handling에서 분리한다.
+- API caller 식별과 caller notification
+- Durable Objects 기반 coordination
+- 자동 code repair, verification, merge, deploy
+- raw evidence archive와 장기 보존 정책
 
-### D1 state 변경이 Queue event를 자동 emit한다고 가정
+## 결과
 
-거부한다. D1에는 database trigger 기반 Queue publish가 없다. D1 transaction과 Queue send도 하나의 atomic operation이 아니다. transactional outbox와 idempotent consumer가 필요하다.
+### 장점
 
-### Codex agent에 D1 read token 또는 arbitrary SQL 제공
+- 사용자 요청 경로와 운영 email 장애가 분리된다.
+- 동일 오류의 중복 incident와 중복 delivery를 추적할 수 있다.
+- D1 transaction, outbox, Queue retry, DLQ terminal 상태가 하나의 audit 흐름으로 연결된다.
+- agent 권한과 자동 코드 변경 위험을 현재 시스템에 도입하지 않는다.
 
-거부한다. agent prompt injection, implementation bug, compromised adapter가 인시던트 이력과 비밀 경계를 넘어 읽을 수 있다. typed tool gateway와 problem/run-scoped capability가 더 좁은 권한을 준다.
+### 비용과 제한
 
-### GitHub Issue를 problem record로 사용
+- 이번 단계에는 자동 scraper 수정이 없으므로 코드는 운영자가 고친다.
+- Queue와 email provider의 at-least-once 경계에서 중복 email 가능성이 남는다.
+- Notification DLQ 자체가 다시 email을 보낼 수는 없으므로 DLQ 상태는 D1 확인이 필요하다.
+- repair, verification, deployment correlation은 구현하지 않고 보류한다.
 
-거부한다. Issue는 사람이 읽기 좋은 escalation surface지만 transaction, event ordering, delivery idempotency, internal evidence access를 제공하지 않는다. D1이 정본이고 Issue는 opaque `problem_id`를 가진 mirror다.
+## 검증 조건
 
-### 모든 오류를 즉시 code repair로 처리
+구현 시 다음 조건을 Miniflare 또는 동일한 in-process 테스트로 확인한다.
 
-거부한다. upstream outage와 network failure는 코드 수정으로 복구되지 않는다. classifier와 allowlist는 AI가 무관한 파일·workflow·secret을 수정하는 것을 막는다.
-
-### 엄격한 Cloudflare-only 실행으로 Codex와 GitHub를 제거
-
-거부한다. Workers AI만으로도 analysis는 가능하지만, 현재 source repository의 PR·required-check·merge lifecycle을 대체하지 못한다. Cloudflare가 data/control plane을 유지하고 Codex/GitHub를 최소 권한 outbound adapter로 제한하는 편이 사용자 요구와 현재 repository workflow를 함께 충족한다.
-
-## 결과와 제약
-
-### 이점
-
-- Main Worker는 remediation workload와 분리되어 사용자 latency를 보호한다.
-- 실제 사용자 `5xx`와 runtime failure가 `problem_id`를 받아 기존 health-triggered auto-heal과 같은 lifecycle으로 들어간다.
-- 발견부터 복구·중단까지 모든 business-level attempt와 reason이 D1 audit event와 email로 남는다.
-- Queue backlog, email retry, test failure, agent outage가 독립적으로 재시도·DLQ 처리된다.
-- Codex/GitHub adapter는 scoped data만 읽고 D1 credential을 받지 않는다.
-- R2는 bounded artifact store로만 사용해 D1 hot state를 단순하게 유지한다.
-
-### 비용과 위험
-
-- D1, Queues, Workflows, R2, Email Service, AI Gateway와 GitHub adapter의 lifecycle을 운영해야 한다.
-- Queue와 Email Service는 at-least-once delivery이므로 드문 duplicate notification은 가능하다.
-- transactional outbox dispatcher가 없거나 멱등 consumer가 잘못되면 event가 유실되거나 반복될 수 있다.
-- Codex/GitHub는 외부 dependency다. adapter outage 또는 credential failure는 repair run을 `blocked`로 기록하고 notify해야 한다.
-- 모든 business-level step을 email로 보내므로 recipient volume이 늘어난다. recipient policy와 retry budget은 runtime configuration으로 유지해야 한다.
-- 자동 merge/deploy는 현재 결정에서 활성화하지 않는다. 잘못된 자동 patch가 production에 도달하는 위험보다 candidate·test·PR 자동화의 이익이 크다.
-
-## 구현 전 검증 조건
-
-세부 구현 계획은 이 ADR 검토 후 작성한다. 최소 검증 조건은 다음과 같다.
-
-1. Cloudflare Workers Vitest integration과 Miniflare로 실제 Hono app, D1 binding, Queue consumer를 실행한다. route, middleware, validation을 mock server에 재구현하지 않는다.
-2. Tail event에서 같은 fingerprint가 동시에 들어와도 하나의 open problem과 one initial outbox event만 commit됨을 검증한다.
-3. D1 commit 직후 Queue publish가 실패하거나 process가 중단된 경우 outbox dispatcher가 event를 재발행함을 검증한다.
-4. duplicate Queue message가 email, repair run, verification run을 중복 생성하지 않음을 검증한다.
-5. Agent Tool Gateway가 expired/wrong-scope capability, arbitrary SQL, raw URL/query/header 요청을 거부함을 검증한다.
-6. `repairable`, `investigate_only`, `needs_human` classifier가 upstream outage와 selector regression을 올바르게 분리함을 검증한다.
-7. GitHub adapter callback의 signature·capability를 검증하고, callback event가 D1 audit과 notification outbox에 기록됨을 검증한다.
-8. staging smoke와 post-deploy check가 성공하기 전에는 문제를 `resolved`로 표시하지 않음을 검증한다.
-9. notification, repair, verification component의 consumer failure가 Main Worker response latency 또는 status code를 바꾸지 않음을 검증한다.
+1. 같은 fingerprint의 동시 오류가 하나의 active incident로 합쳐진다.
+2. handled `5xx`와 runtime failure가 같은 정규화 경계를 거친다.
+3. raw request/upstream/secret 정보가 D1과 email에 남지 않는다.
+4. D1 commit 후 Queue publish 실패가 outbox recovery로 재시도된다.
+5. duplicate Queue delivery가 새 email을 중복 생성하지 않는다.
+6. DLQ event가 terminal audit을 정확히 한 번 남기고 원본 Queue로 loop하지 않는다.
+7. Operations Worker 장애가 Main Worker 응답을 실패시키지 않는다.
+8. health monitor가 `/health` probe 외 workflow를 실행하지 않는다.
 
 ## 참고
 
 - [Cloudflare Tail Workers](https://developers.cloudflare.com/workers/observability/logs/tail-workers/)
-- [Cloudflare Tail handler API](https://developers.cloudflare.com/workers/runtime-apis/handlers/tail/)
-- [Cloudflare Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)
-- [Cloudflare D1 Worker API](https://developers.cloudflare.com/d1/worker-api/d1-database/)
+- [Cloudflare D1 transactions](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch)
 - [Cloudflare Queues](https://developers.cloudflare.com/queues/)
-- [Cloudflare Queue delivery guarantees](https://developers.cloudflare.com/queues/reference/delivery-guarantees/)
-- [Cloudflare Workflows](https://developers.cloudflare.com/workflows/)
-- [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/)
-- [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/)
+- [Cloudflare Queues retry and dead-letter queues](https://developers.cloudflare.com/queues/configuration/retries/)
+- [Cloudflare scheduled handlers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)
