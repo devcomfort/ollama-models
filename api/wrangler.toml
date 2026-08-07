@@ -9,9 +9,8 @@ OLLAMA_USER_AGENT = "ollama-models-api/0.1 (+https://github.com/devcomfort/ollam
 OLLAMA_ACCEPT = "text/html,application/xhtml+xml"
 OLLAMA_ACCEPT_LANGUAGE = "en-US,en;q=0.9"
 
-# Staging environment for auto-heal e2e simulation. Same vars as production
-# but a separate Worker URL so we can intentionally break selectors and watch
-# the full detection→trigger→OpenCode chain run without affecting real traffic.
+# Staging environment for health-probe observation and API smoke tests.
+# Automatic recovery and agent repair workflows are intentionally disabled.
 [env.staging]
 name = "ollama-models-api-staging"
 

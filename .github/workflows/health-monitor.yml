@@ -5,10 +5,6 @@ on:
     - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
-      test_mode:
-        description: 'Force trigger auto-heal regardless of health status'
-        type: boolean
-        default: false
       target_env:
         description: 'Which API to probe (cron always probes production)'
         type: choice
@@ -17,10 +13,7 @@ on:
           - staging
         default: production
 
-permissions:
-  actions: write
-  pull-requests: read
-  issues: read
+permissions: {}
 
 concurrency:
   group: health-monitor
@@ -30,18 +23,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
 
-      - name: Probe /health (3 attempts, 5s apart, only on structure_change)
-        id: probe
+      - name: Probe /health (3 attempts, 5s apart)
         env:
-          # Cron runs default to production. Manual dispatch can target staging
-          # for auto-heal e2e simulation. The empty-string fallback handles the
-          # cron case where github.event.inputs is null.
+          # Cron defaults to production; manual dispatch can target staging for observation.
           TARGET_ENV: ${{ github.event.inputs.target_env || 'production' }}
-          # When probing staging, pass the test branch to auto-heal so it
-          # checks out the code with intentionally broken selectors.
-          TARGET_REF: ${{ github.event.inputs.target_env == 'staging' && 'test/auto-heal-e2e' || '' }}
         run: |
           set -uo pipefail
 
@@ -52,12 +38,6 @@ jobs:
           fi
           echo "Probing: $API_URL"
 
-          # test_mode: skip health probes and force chain execution for debugging
-          if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
-            echo "TEST MODE: skipping health probes, forcing trigger=true"
-            echo "trigger=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
 
           # NOTE: -f is intentionally omitted. /health returns HTTP 503 when
           # ok=false; with -f, curl discards the body and we lose failure_kind.
@@ -75,7 +55,6 @@ jobs:
 
           if [ "$attempt1" != "structure_change" ]; then
             echo "First probe returned: $attempt1 — not a structure change. Exiting."
-            echo "trigger=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -86,7 +65,6 @@ jobs:
 
           if [ "$attempt2" != "structure_change" ]; then
             echo "Second probe returned: $attempt2 — transient. Exiting."
-            echo "trigger=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -96,49 +74,7 @@ jobs:
 
           if [ "$attempt3" != "structure_change" ]; then
             echo "Third probe returned: $attempt3 — transient. Exiting."
-            echo "trigger=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "All 3 attempts returned structure_change. Triggering auto-heal."
-          echo "trigger=true" >> "$GITHUB_OUTPUT"
-
-      - name: Trigger auto-heal
-        if: steps.probe.outputs.trigger == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          # Duplicate prevention: skip trigger if a prior incident is still being handled.
-          # Both checks short-circuit so we don't pile up redundant workflow runs or PRs.
-          open_prs=$(gh pr list \
-            --repo "${{ github.repository }}" \
-            --label auto-heal \
-            --state open \
-            --limit 100 \
-            --json number \
-            --jq 'length')
-          if [ "$open_prs" -gt 0 ]; then
-            echo "Skipping trigger: $open_prs open auto-heal PR(s) already awaiting review."
-            exit 0
-          fi
-
-          open_issues=$(gh issue list \
-            --repo "${{ github.repository }}" \
-            --label needs-human \
-            --state open \
-            --limit 100 \
-            --json number \
-            --jq 'length')
-          if [ "$open_issues" -gt 0 ]; then
-            echo "Skipping trigger: $open_issues open needs-human issue(s) awaiting manual intervention."
-            exit 0
-          fi
-
-          gh workflow run "Auto-Heal Scrapers" \
-            --repo "${{ github.repository }}" \
-            -f detected_at="${{ github.event.repository.updated_at }}" \
-            -f run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            -f ref="${TARGET_REF:-}"
-
+          echo "All 3 attempts returned structure_change; auto-heal is disabled. Recording observation only."
