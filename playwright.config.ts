@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'https://ollama.devcomfort.me';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'https://ollama.devcomfort.me',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
