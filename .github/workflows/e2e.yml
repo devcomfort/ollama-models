@@ -21,7 +21,6 @@ jobs:
     name: Playwright E2E (${{ matrix.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: ${{ matrix.allow_failure }}
     strategy:
       fail-fast: false
       matrix:
@@ -51,9 +50,18 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
+        id: e2e
+        continue-on-error: ${{ matrix.allow_failure }}
         run: pnpm test:e2e
         env:
           PLAYWRIGHT_BASE_URL: ${{ matrix.base_url }}
+
+      - name: Report custom domain outage
+        if: ${{ matrix.allow_failure && steps.e2e.outcome == 'failure' }}
+        run: |
+          echo "::warning::Custom domain E2E failed; Pages E2E remains the blocking deployment check."
+          echo "### Custom domain E2E diagnostic" >> "$GITHUB_STEP_SUMMARY"
+          echo "The public custom domain failed independently of the blocking Pages E2E job." >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
