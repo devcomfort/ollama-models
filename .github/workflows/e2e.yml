@@ -7,18 +7,33 @@ on:
       - 'docs/**'
       - 'tests/e2e/**'
       - 'playwright.config.ts'
+      - '.github/workflows/e2e.yml'
   pull_request:
     branches: [main]
     paths:
       - 'docs/**'
       - 'tests/e2e/**'
       - 'playwright.config.ts'
+      - '.github/workflows/e2e.yml'
 
 jobs:
   e2e:
-    name: Playwright E2E tests
+    name: Playwright E2E (${{ matrix.label }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    continue-on-error: ${{ matrix.allow_failure }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Pages
+            base_url: https://ollama-models.pages.dev
+            artifact: pages
+            allow_failure: false
+          - label: custom domain diagnostic
+            base_url: https://ollama.devcomfort.me
+            artifact: custom-domain
+            allow_failure: true
     steps:
       - uses: actions/checkout@v4
 
@@ -37,10 +52,12 @@ jobs:
 
       - name: Run E2E tests
         run: pnpm test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ matrix.base_url }}
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.artifact }}
           path: playwright-report/
           retention-days: 7
