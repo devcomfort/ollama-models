@@ -273,28 +273,9 @@ jobs:
           echo "::error::Pages did not serve commit $GITHUB_SHA within the propagation window."
           exit 1
       - name: Wait for custom-domain API routing
+        run: pnpm exec tsx scripts/wait-for-pages-routing.ts
         env:
           CUSTOM_DOMAIN_OPENAPI_URL: https://ollama.devcomfort.me/api/openapi.json
-        run: |
-          set -euo pipefail
-
-          for attempt in $(seq 1 36); do
-            if body="$(curl --fail --silent --show-error --max-time 5 \
-              -H 'Accept: application/json' \
-              -H 'Cache-Control: no-cache' \
-              "${CUSTOM_DOMAIN_OPENAPI_URL}?run=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${attempt}")"; then
-              if printf '%s' "$body" | jq --exit-status '.openapi == "3.0.0"' > /dev/null 2>&1; then
-                echo "Custom-domain API routing is ready"
-                exit 0
-              fi
-            fi
-
-            echo "Waiting for custom-domain API routing (attempt $attempt/36)"
-            sleep 5
-          done
-
-          echo "::error::Custom-domain API routing did not become ready within the propagation window."
-          exit 1
       - name: Run custom-domain Playwright E2E
         run: pnpm exec playwright test --retries=0
         env:
