@@ -250,28 +250,9 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
       - name: Wait for deployed commit on custom domain
+        run: pnpm exec tsx scripts/wait-for-pages-deployment.ts
         env:
           DEPLOYMENT_MARKER_URL: https://ollama.devcomfort.me/__deploy/${{ github.sha }}.json
-        run: |
-          set -euo pipefail
-
-          for attempt in $(seq 1 24); do
-            if body="$(curl --fail --silent --show-error --max-time 10 \
-              -H 'Cache-Control: no-cache' \
-              "${DEPLOYMENT_MARKER_URL}?run=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${attempt}")"; then
-              served_sha="$(printf '%s' "$body" | jq -r '.sha // empty' 2>/dev/null || true)"
-              if [ "$served_sha" = "$GITHUB_SHA" ]; then
-                echo "Custom domain is serving commit $GITHUB_SHA"
-                exit 0
-              fi
-            fi
-
-            echo "Waiting for custom-domain propagation (attempt $attempt/24)"
-            sleep 5
-          done
-
-          echo "::error::Custom domain did not serve commit $GITHUB_SHA within the propagation window."
-          exit 1
       - name: Run custom-domain Playwright E2E
         run: pnpm exec playwright test --retries=0
         env:
