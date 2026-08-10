@@ -99,3 +99,43 @@ test.describe('Try Now demo page', () => {
     await expect(page.locator('#title')).toContainText('Try ollama-models API');
   });
 });
+
+// === Localized documentation routes ===
+// Starlight prefixes sidebar links with the active locale, so each generated
+// route must render the shared demo in the matching language.
+test.describe('Localized Try Now routes', () => {
+  // Q. Does the English documentation link open a working English demo route?
+  test('영문 문서에서 영문 체험 페이지로 이동한다', async ({ page }) => {
+    await page.goto('/en/');
+    await page.getByRole('link', { name: 'Try Now', exact: true }).first().click();
+
+    await expect(page).toHaveURL(/\/en\/try\/$/);
+    await expect(page.locator('#title')).toHaveText('Try ollama-models API');
+    await expect(page.locator('#back-link')).toHaveAttribute('href', '/en/');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  });
+
+  // Q. Does the Korean documentation link open a working Korean demo route?
+  test('한국어 문서에서 한국어 체험 페이지로 이동한다', async ({ page }) => {
+    await page.goto('/ko/');
+    await page.getByRole('link', { name: '체험하기', exact: true }).first().click();
+
+    await expect(page).toHaveURL(/\/ko\/try\/$/);
+    await expect(page.locator('#title')).toHaveText('ollama-models API 체험하기');
+    await expect(page.locator('#back-link')).toHaveAttribute('href', '/ko/');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
+  });
+
+  // Q. Does changing the demo language keep its localized URL in sync?
+  test('언어 선택이 지역화된 체험 페이지 URL을 갱신한다', async ({ page }) => {
+    await page.goto('/try/');
+
+    await page.click('#lang-trigger');
+    await page.click('[data-lang="ko"]');
+    await expect(page).toHaveURL(/\/ko\/try\/$/);
+
+    await page.click('#lang-trigger');
+    await page.click('[data-lang="en"]');
+    await expect(page).toHaveURL(/\/en\/try\/$/);
+  });
+});
