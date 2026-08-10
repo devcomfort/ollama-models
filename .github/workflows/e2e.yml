@@ -25,13 +25,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: Pages
-            base_url: https://ollama-models.pages.dev
-            artifact: pages
+          - label: Pages build
+            base_url: http://127.0.0.1:4321
+            artifact: pages-build
+            local_preview: true
             allow_failure: false
           - label: custom domain diagnostic
             base_url: https://ollama.devcomfort.me
             artifact: custom-domain
+            local_preview: false
             allow_failure: true
     steps:
       - uses: actions/checkout@v4
@@ -55,13 +57,14 @@ jobs:
         run: pnpm test:e2e
         env:
           PLAYWRIGHT_BASE_URL: ${{ matrix.base_url }}
+          PLAYWRIGHT_LOCAL_PREVIEW: ${{ matrix.local_preview }}
 
       - name: Report custom domain outage
         if: ${{ matrix.allow_failure && steps.e2e.outcome == 'failure' }}
         run: |
-          echo "::warning::Custom domain E2E failed; Pages E2E remains the blocking deployment check."
+          echo "::warning::Custom domain E2E failed; the Pages build E2E remains the blocking check."
           echo "### Custom domain E2E diagnostic" >> "$GITHUB_STEP_SUMMARY"
-          echo "The public custom domain failed independently of the blocking Pages E2E job." >> "$GITHUB_STEP_SUMMARY"
+          echo "The public custom domain failed independently of the blocking Pages build E2E job." >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
