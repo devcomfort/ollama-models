@@ -1,0 +1,20 @@
+---
+import TryPage from '../../../components/TryPage.astro';
+
+type SupportedLocale = 'en' | 'ko';
+
+interface Props {
+  initialLang: SupportedLocale;
+}
+
+export function getStaticPaths() {
+  return [
+    { params: { lang: 'en' }, props: { initialLang: 'en' } },
+    { params: { lang: 'ko' }, props: { initialLang: 'ko' } },
+  ];
+}
+
+const { initialLang } = Astro.props;
+---
+
+<TryPage initialLang={initialLang} />
