@@ -19,6 +19,16 @@ async function main(): Promise<void> {
 
   try {
     const page = await browser.newPage();
+    const tryPageURL = new URL('/try/', openAPIURL);
+    const tryPageResponse = await page.goto(tryPageURL.toString(), {
+      timeout: NAVIGATION_TIMEOUT_MS,
+      waitUntil: 'domcontentloaded',
+    });
+
+    if (!tryPageResponse?.ok()) {
+      throw new Error(`Custom-domain demo page returned HTTP ${tryPageResponse?.status() ?? 'unknown'}.`);
+    }
+
     let lastStatus: number | undefined;
     let lastError: string | undefined;
 
@@ -27,14 +37,28 @@ async function main(): Promise<void> {
       requestURL.searchParams.set('run', `${runID}-${runAttempt}-${attempt}`);
 
       try {
-        const response = await page.goto(requestURL.toString(), {
-          timeout: NAVIGATION_TIMEOUT_MS,
-          waitUntil: 'commit',
-        });
-        lastStatus = response?.status();
+        const result = await page.evaluate(
+          async ({ timeout, url }) => {
+            const response = await fetch(url, {
+              cache: 'no-store',
+              headers: { Accept: 'application/json' },
+              signal: AbortSignal.timeout(timeout),
+            });
 
-        if (response?.ok()) {
-          const payload: unknown = await response.json();
+            return {
+              body: await response.text(),
+              status: response.status,
+            };
+          },
+          {
+            timeout: NAVIGATION_TIMEOUT_MS,
+            url: requestURL.toString(),
+          },
+        );
+        lastStatus = result.status;
+
+        if (result.status >= 200 && result.status < 300) {
+          const payload: unknown = JSON.parse(result.body);
 
           if (
             typeof payload === 'object' &&

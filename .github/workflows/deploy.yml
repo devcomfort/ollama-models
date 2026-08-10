@@ -30,6 +30,7 @@ on:
       - 'workers/**'
       - '.github/workflows/deploy.yml'
       - 'scripts/e2e.sh'
+      - 'scripts/wait-for-pages-routing.ts'
 
 concurrency:
   group: deploy-main
