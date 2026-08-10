@@ -273,7 +273,7 @@ jobs:
           echo "::error::Custom domain did not serve commit $GITHUB_SHA within the propagation window."
           exit 1
       - name: Run custom-domain Playwright E2E
-        run: pnpm test:e2e
+        run: pnpm exec playwright test --retries=0
         env:
           PLAYWRIGHT_BASE_URL: https://ollama.devcomfort.me
           PLAYWRIGHT_LOCAL_PREVIEW: 'false'
