@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises';
-import { chromium } from '@playwright/test';
+import { chromium, devices } from '@playwright/test';
 
 const EXPECTED_OPENAPI_VERSION = '3.0.0';
 const MAX_ATTEMPTS = 36;
@@ -18,7 +18,10 @@ async function main(): Promise<void> {
   const browser = await chromium.launch();
 
   try {
-    const page = await browser.newPage();
+    const context = await browser.newContext({
+      userAgent: devices['Desktop Chrome'].userAgent,
+    });
+    const page = await context.newPage();
     const tryPageURL = new URL('/try/', openAPIURL);
     const tryPageResponse = await page.goto(tryPageURL.toString(), {
       timeout: NAVIGATION_TIMEOUT_MS,
