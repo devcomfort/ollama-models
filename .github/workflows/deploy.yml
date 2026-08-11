@@ -273,10 +273,10 @@ jobs:
 
           echo "::error::Pages did not serve commit $GITHUB_SHA within the propagation window."
           exit 1
-      - name: Wait for custom-domain API routing
+      - name: Wait for custom-domain routes
         run: pnpm exec tsx scripts/wait-for-pages-routing.ts
         env:
-          CUSTOM_DOMAIN_OPENAPI_URL: https://ollama.devcomfort.me/api/openapi.json
+          CUSTOM_DOMAIN_BASE_URL: https://ollama.devcomfort.me
       - name: Run custom-domain Playwright E2E
         run: pnpm exec playwright test --retries=0
         env:
