@@ -23,15 +23,15 @@ async function main(): Promise<void> {
   const browser = await chromium.launch();
 
   try {
-    const context = await browser.newContext({
-      userAgent: devices['Desktop Chrome'].userAgent,
-    });
-    const page = await context.newPage();
     let lastStatus: number | undefined;
     let lastError: string | undefined;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       const cacheKey = `${runID}-${runAttempt}-${attempt}`;
+      const context = await browser.newContext({
+        ...devices['Desktop Chrome'],
+      });
+      const page = await context.newPage();
 
       try {
         for (const route of DEMO_ROUTES) {
@@ -59,9 +59,9 @@ async function main(): Promise<void> {
           }
         }
 
-        // A validation failure traverses the Pages Function and API Worker without scraping Ollama.
+        // An unqualified model name traverses the proxy and API handler, then fails before scraping.
         const requestURL = new URL('/api/model', customDomainBaseURL);
-        requestURL.searchParams.set('readiness', cacheKey);
+        requestURL.searchParams.set('name', `readiness-probe-${cacheKey}`);
         const result = await page.evaluate(
           async ({ timeout, url }) => {
             const response = await fetch(url, {
@@ -107,6 +107,8 @@ async function main(): Promise<void> {
         return;
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
+      } finally {
+        await context.close();
       }
 
       if (attempt === MAX_ATTEMPTS) {
